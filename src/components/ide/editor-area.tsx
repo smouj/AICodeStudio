@@ -9,7 +9,7 @@ import type { editor } from 'monaco-editor'
 const MonacoEditor = dynamic(() => import('@monaco-editor/react').then((mod) => mod.default), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-[#0d1117] text-[#3d4450] font-mono text-sm">
+    <div className="flex items-center justify-center h-full bg-[#0d1117] text-[#30363d] font-mono text-sm">
       Loading editor...
     </div>
   ),
@@ -55,35 +55,53 @@ export function EditorArea() {
     monaco.editor.defineTheme(customThemeName, {
       base: 'vs-dark',
       inherit: true,
-      rules: [],
+      rules: [
+        { token: 'comment', foreground: '3d4450', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '00d4aa' },
+        { token: 'string', foreground: 'a5d6ff' },
+        { token: 'number', foreground: '79c0ff' },
+        { token: 'type', foreground: '7ee787' },
+        { token: 'function', foreground: 'd2a8ff' },
+        { token: 'variable', foreground: 'ffa657' },
+        { token: 'operator', foreground: '00d4aa' },
+        { token: 'delimiter', foreground: '8b949e' },
+        { token: 'tag', foreground: '7ee787' },
+        { token: 'attribute.name', foreground: '79c0ff' },
+        { token: 'attribute.value', foreground: 'a5d6ff' },
+      ],
       colors: {
-        'editor.background': '#0d1117',
-        'editor.foreground': '#e6edf3',
-        'editor.lineHighlightBackground': '#161b22',
-        'editor.selectionBackground': '#ffffff20',
-        'editorCursor.foreground': '#ffffff',
-        'editor.inactiveSelectionBackground': '#ffffff10',
-        'editorLineNumber.foreground': '#484f58',
-        'editorLineNumber.activeForeground': '#8b949e',
+        'editor.background': '#0a0e14',
+        'editor.foreground': '#c9d1d9',
+        'editor.lineHighlightBackground': '#0d1117',
+        'editor.selectionBackground': '#00d4aa22',
+        'editorCursor.foreground': '#00d4aa',
+        'editor.inactiveSelectionBackground': '#00d4aa11',
+        'editorLineNumber.foreground': '#30363d',
+        'editorLineNumber.activeForeground': '#00d4aa',
         'editorIndentGuide.background': '#161b22',
         'editorIndentGuide.activeBackground': '#30363d',
-        'editorWhitespace.foreground': '#30363d',
-        'editorBracketMatch.background': '#ffffff10',
-        'editorBracketMatch.border': '#ffffff20',
-        'editorOverviewRuler.border': '#0d1117',
-        'editorGutter.background': '#0d1117',
-        'editor.selectionHighlightBackground': '#ffffff10',
-        'editorWidget.background': '#161b22',
-        'editorWidget.border': 'rgba(255,255,255,0.06)',
-        'editorSuggestWidget.background': '#161b22',
-        'editorSuggestWidget.border': 'rgba(255,255,255,0.06)',
-        'editorSuggestWidget.selectedBackground': 'rgba(255,255,255,0.08)',
-        'input.background': '#0d1117',
-        'input.border': 'rgba(255,255,255,0.08)',
-        'scrollbarSlider.background': '#484f5840',
-        'scrollbarSlider.hoverBackground': '#484f5880',
-        'scrollbarSlider.activeBackground': '#484f58a0',
-        'minimap.background': '#0d1117',
+        'editorWhitespace.foreground': '#161b22',
+        'editorBracketMatch.background': '#00d4aa11',
+        'editorBracketMatch.border': '#00d4aa33',
+        'editorOverviewRuler.border': '#0a0e14',
+        'editorGutter.background': '#0a0e14',
+        'editor.selectionHighlightBackground': '#00d4aa11',
+        'editorWidget.background': '#0d1117',
+        'editorWidget.border': 'rgba(0,212,170,0.08)',
+        'editorSuggestWidget.background': '#0d1117',
+        'editorSuggestWidget.border': 'rgba(0,212,170,0.08)',
+        'editorSuggestWidget.selectedBackground': 'rgba(0,212,170,0.08)',
+        'editorSuggestWidget.highlightForeground': '#00d4aa',
+        'input.background': '#0a0e14',
+        'input.border': 'rgba(0,212,170,0.08)',
+        'input.focusBorder': 'rgba(0,212,170,0.25)',
+        'scrollbarSlider.background': '#30363d40',
+        'scrollbarSlider.hoverBackground': '#30363d80',
+        'scrollbarSlider.activeBackground': '#30363da0',
+        'minimap.background': '#0a0e14',
+        'editorGutter.modifiedBackground': '#ffa65733',
+        'editorGutter.addedBackground': '#3fb95033',
+        'editorGutter.deletedBackground': '#f8514933',
       },
     })
   }, [])
@@ -94,9 +112,9 @@ export function EditorArea() {
 
   if (openTabs.length === 0) {
     return (
-      <div className="flex-1 bg-[#0a0e14] flex items-center justify-center relative overflow-hidden">
+      <div className="flex-1 bg-[#080c12] flex items-center justify-center relative overflow-hidden">
         {/* ASCII Art Background */}
-        <div className="absolute inset-0 opacity-[0.03] font-mono text-[8px] leading-tight text-white select-none overflow-hidden whitespace-pre p-4">
+        <div className="absolute inset-0 opacity-[0.03] font-mono text-[8px] leading-tight text-[#00d4aa] select-none overflow-hidden whitespace-pre p-4 ascii-bg">
 {`████╗ ███████╗ ██████╗██╗  ██╗███████╗██████╗  ██████╗ ███╗   ██╗ █████╗ ██╗  ██╗   ██╗████████╗███████╗██████╗
 ╚══██╗██╔════╝██╔════╝██║  ██║██╔════╝██╔══██╗██╔═══██╗████╗  ██║██╔══██╗██║  ╚██╗ ██╔╝╚══██╔══╝██╔════╝██╔══██╗
   ██║█████╗  ██║     ███████║█████╗  ██████╔╝██║   ██║██╔██╗ ██║███████║██║   ╚████╔╝    ██║   █████╗  ██║  ██║
@@ -111,23 +129,41 @@ export function EditorArea() {
 ╚═╝  ╚═╝╚══════╝  ╚═╝      ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝╚══════╝`}
         </div>
 
+        {/* Decorative grid lines */}
+        <div className="absolute inset-0 opacity-[0.015]" style={{
+          backgroundImage: 'linear-gradient(rgba(0,212,170,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,170,0.3) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+        }} />
+
         {/* Welcome Content */}
         <div className="relative z-10 text-center">
-          <div className="text-white/20 text-[80px] font-bold font-mono leading-none mb-2">
+          <div className="text-[#00d4aa]/20 text-[80px] font-bold font-mono leading-none mb-2 pulse-accent">
             {'</>'}
           </div>
           <h1 className="text-[#e6edf3] text-2xl font-mono font-semibold mb-1">AICodeStudio</h1>
           <p className="text-[#484f58] text-sm font-mono mb-8">Next-Generation AI-Powered IDE</p>
-          <div className="flex flex-col gap-2 text-[12px] font-mono">
-            <button className="text-[#8b949e] hover:text-white transition-colors cursor-pointer">
-              → Open File
-            </button>
-            <button className="text-[#8b949e] hover:text-white transition-colors cursor-pointer">
-              → Clone Repository
-            </button>
-            <button className="text-[#8b949e] hover:text-white transition-colors cursor-pointer">
-              → Connect AI Provider
-            </button>
+          <div className="flex flex-col gap-2.5 text-[12px] font-mono">
+            {[
+              { label: 'Open File', shortcut: 'Ctrl+O' },
+              { label: 'Clone Repository', shortcut: 'Ctrl+Shift+G' },
+              { label: 'Connect AI Provider', shortcut: 'Ctrl+Shift+A' },
+            ].map((action) => (
+              <button
+                key={action.label}
+                className="group flex items-center gap-3 text-[#484f58] hover:text-[#00d4aa] transition-colors cursor-pointer mx-auto"
+              >
+                <span className="text-[#00d4aa]/40 group-hover:text-[#00d4aa] transition-colors">→</span>
+                <span>{action.label}</span>
+                <span className="text-[#30363d] text-[10px]">{action.shortcut}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Version badge */}
+          <div className="mt-10 flex items-center justify-center gap-2">
+            <div className="h-px w-8 bg-[#30363d]" />
+            <span className="text-[10px] text-[#30363d] font-mono">v1.0.0</span>
+            <div className="h-px w-8 bg-[#30363d]" />
           </div>
         </div>
       </div>
@@ -135,32 +171,32 @@ export function EditorArea() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0a0e14] min-w-0">
+    <div className="flex-1 flex flex-col bg-[#080c12] min-w-0">
       {/* Tabs */}
-      <div className="flex items-center bg-[#060a10] border-b border-white/[0.06] overflow-x-auto shrink-0 custom-scrollbar">
+      <div className="flex items-center bg-[#050810] border-b border-[rgba(0,212,170,0.08)] overflow-x-auto shrink-0 custom-scrollbar">
         {openTabs.map((tab) => (
           <div
             key={tab.id}
             className={`
               flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono cursor-pointer
-              border-r border-white/[0.03] min-w-0 shrink-0 transition-colors
+              border-r border-[rgba(0,212,170,0.04)] min-w-0 shrink-0 transition-colors
               ${tab.id === activeTabId
-                ? 'bg-[#0d1117] text-[#e6edf3] border-t-[2px] border-t-white'
-                : 'text-[#484f58] hover:text-[#8b949e] border-t-[2px] border-t-transparent'
+                ? 'bg-[#0a0e14] text-[#e6edf3] border-t-[2px] border-t-[#00d4aa]'
+                : 'text-[#484f58] hover:text-[#8b949e] border-t-[2px] border-t-transparent hover:bg-[#0d1117]'
               }
             `}
             onClick={() => setActiveTab(tab.id)}
           >
             <span className="truncate max-w-[120px]">{tab.name}</span>
             {tab.isModified && (
-              <Circle size={6} fill="currentColor" className="text-white shrink-0" />
+              <Circle size={6} fill="currentColor" className="text-[#00d4aa] shrink-0" />
             )}
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 closeTab(tab.id)
               }}
-              className="ml-1 text-[#3d4450] hover:text-[#e6edf3] transition-colors shrink-0 cursor-pointer"
+              className="ml-1 text-[#30363d] hover:text-[#e6edf3] transition-colors shrink-0 cursor-pointer"
             >
               <X size={12} />
             </button>

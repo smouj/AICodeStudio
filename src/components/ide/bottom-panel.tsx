@@ -18,11 +18,11 @@ export function BottomPanel() {
 
   return (
     <div
-      className="bg-[#0d1117] border-t border-white/[0.06] flex flex-col shrink-0"
+      className="bg-[#0a0e14] border-t border-[rgba(0,212,170,0.08)] flex flex-col shrink-0"
       style={{ height: bottomPanelHeight }}
     >
       {/* Panel Tabs */}
-      <div className="flex items-center gap-0 bg-[#060a10] border-b border-white/[0.06] shrink-0">
+      <div className="flex items-center gap-0 bg-[#050810] border-b border-[rgba(0,212,170,0.08)] shrink-0">
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (
@@ -33,8 +33,8 @@ export function BottomPanel() {
                 flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono transition-colors cursor-pointer
                 border-b-[2px]
                 ${activeBottomPanel === tab.id
-                  ? 'text-[#e6edf3] border-b-white'
-                  : 'text-[#484f58] border-b-transparent hover:text-[#8b949e]'
+                  ? 'text-[#e6edf3] border-b-[#00d4aa]'
+                  : 'text-[#30363d] border-b-transparent hover:text-[#6e7681]'
                 }
               `}
             >
@@ -49,22 +49,22 @@ export function BottomPanel() {
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeBottomPanel === 'terminal' && <TerminalPanel />}
         {activeBottomPanel === 'output' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
-            <div>[AICodeStudio] Output channel ready</div>
-            <div>[AICodeStudio] Extensions loaded: 2</div>
-            <div>[AICodeStudio] AI providers initialized</div>
-            <div>[AICodeStudio] TypeScript server started</div>
+          <div className="h-full p-3 font-mono text-[12px] text-[#30363d]">
+            <div><span className="text-[#00d4aa]/60">[AICodeStudio]</span> Output channel ready</div>
+            <div><span className="text-[#00d4aa]/60">[AICodeStudio]</span> Extensions loaded: 2</div>
+            <div><span className="text-[#00d4aa]/60">[AICodeStudio]</span> AI providers initialized</div>
+            <div><span className="text-[#00d4aa]/60">[AICodeStudio]</span> TypeScript server started</div>
           </div>
         )}
         {activeBottomPanel === 'problems' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
-            <div className="text-[#3fb950]">✓ No problems detected in workspace</div>
+          <div className="h-full p-3 font-mono text-[12px] text-[#30363d]">
+            <div className="text-[#3fb950]">&#10003; No problems detected in workspace</div>
           </div>
         )}
         {activeBottomPanel === 'debug' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
+          <div className="h-full p-3 font-mono text-[12px] text-[#30363d]">
             <div>No active debug session</div>
-            <div className="mt-2 text-[11px] text-[#3d4450]">Press F5 to start debugging</div>
+            <div className="mt-2 text-[11px] text-[#30363d]">Press F5 to start debugging</div>
           </div>
         )}
       </div>

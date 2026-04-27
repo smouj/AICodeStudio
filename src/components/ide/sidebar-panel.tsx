@@ -16,7 +16,7 @@ export function SidebarPanel() {
 
   return (
     <div
-      className="h-full bg-[#0a0e14] border-r border-white/[0.06] overflow-hidden shrink-0 flex flex-col"
+      className="h-full bg-[#080c12] border-r border-[rgba(0,212,170,0.08)] overflow-hidden shrink-0 flex flex-col"
       style={{ width: sidebarWidth }}
     >
       {activeSidebarPanel === 'explorer' && <FileExplorer />}
@@ -28,7 +28,7 @@ export function SidebarPanel() {
       {activeSidebarPanel === 'extensions' && <ExtensionsPanel />}
       {activeSidebarPanel === 'settings' && (
         <div className="h-full flex flex-col">
-          <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#484f58] border-b border-white/[0.06]">
+          <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
             Settings
           </div>
           <div className="p-4">
@@ -45,8 +45,8 @@ export function SidebarPanel() {
                 { label: 'Bracket Pairs', value: 'Colorized' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#8b949e] font-mono">{item.label}</span>
-                  <span className="text-[12px] text-white font-mono">{item.value}</span>
+                  <span className="text-[12px] text-[#6e7681] font-mono">{item.label}</span>
+                  <span className="text-[12px] text-[#00d4aa] font-mono">{item.value}</span>
                 </div>
               ))}
             </div>

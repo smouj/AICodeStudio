@@ -69,7 +69,7 @@ export function AIChatPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#484f58] border-b border-white/[0.06]">
+      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
         <span>AI Assistant</span>
         <div className="flex items-center gap-1">
           {aiProviders.map((provider) => (
@@ -79,12 +79,12 @@ export function AIChatPanel() {
               className={`
                 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-all cursor-pointer
                 ${activeAiProvider === provider.id
-                  ? 'bg-white/[0.06] text-white'
-                  : 'text-[#3d4450] hover:text-[#484f58]'
+                  ? 'bg-[rgba(0,212,170,0.12)] text-[#00d4aa]'
+                  : 'text-[#30363d] hover:text-[#484f58]'
                 }
               `}
             >
-              <Radio size={8} className={provider.status === 'connected' ? 'text-[#3fb950]' : 'text-[#f85149]'} />
+              <Radio size={8} className={provider.status === 'connected' ? 'text-[#00d4aa]' : 'text-[#f85149]'} />
               {provider.name}
             </button>
           ))}
@@ -92,10 +92,10 @@ export function AIChatPanel() {
       </div>
 
       {/* Provider Status */}
-      <div className="px-3 py-2 border-b border-white/[0.03]">
+      <div className="px-3 py-2 border-b border-[rgba(0,212,170,0.04)]">
         <div className="flex items-center gap-2 text-[11px]">
-          <div className={`w-1.5 h-1.5 rounded-full ${currentProvider?.status === 'connected' ? 'bg-[#3fb950]' : 'bg-[#f85149]'}`} />
-          <span className="text-[#484f58] font-mono">
+          <div className={`w-1.5 h-1.5 rounded-full ${currentProvider?.status === 'connected' ? 'bg-[#00d4aa]' : 'bg-[#f85149]'}`} />
+          <span className="text-[#30363d] font-mono">
             {currentProvider?.name} · {currentProvider?.model}
           </span>
         </div>
@@ -104,29 +104,20 @@ export function AIChatPanel() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
         {chatMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-[#3d4450] text-center py-8">
-            <Bot size={40} className="mb-3 text-white/30" />
-            <p className="text-[13px] font-mono">AI Assistant Ready</p>
+          <div className="flex flex-col items-center justify-center h-full text-[#30363d] text-center py-8">
+            <Bot size={40} className="mb-3 text-[#00d4aa]/20" />
+            <p className="text-[13px] font-mono text-[#484f58]">AI Assistant Ready</p>
             <p className="text-[11px] mt-1">Ask me anything about your code</p>
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setInput('Explain this code')}
-                className="px-3 py-1 text-[10px] font-mono border border-white/[0.08] rounded text-[#8b949e] hover:bg-white/[0.03] cursor-pointer"
-              >
-                Explain code
-              </button>
-              <button
-                onClick={() => setInput('Find bugs')}
-                className="px-3 py-1 text-[10px] font-mono border border-white/[0.08] rounded text-[#8b949e] hover:bg-white/[0.03] cursor-pointer"
-              >
-                Find bugs
-              </button>
-              <button
-                onClick={() => setInput('Optimize performance')}
-                className="px-3 py-1 text-[10px] font-mono border border-white/[0.08] rounded text-[#8b949e] hover:bg-white/[0.03] cursor-pointer"
-              >
-                Optimize
-              </button>
+              {['Explain code', 'Find bugs', 'Optimize'].map((action) => (
+                <button
+                  key={action}
+                  onClick={() => setInput(action === 'Explain code' ? 'Explain this code' : action === 'Find bugs' ? 'Find bugs' : 'Optimize performance')}
+                  className="px-3 py-1 text-[10px] font-mono border border-[rgba(0,212,170,0.12)] rounded text-[#00d4aa]/60 hover:bg-[rgba(0,212,170,0.06)] hover:text-[#00d4aa] cursor-pointer transition-colors"
+                >
+                  {action}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -136,11 +127,11 @@ export function AIChatPanel() {
             className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="w-6 h-6 rounded bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-6 h-6 rounded bg-[rgba(0,212,170,0.08)] flex items-center justify-center shrink-0 mt-0.5">
                 {msg.provider === 'openclaw' ? (
-                  <Zap size={12} className="text-white" />
+                  <Zap size={12} className="text-[#00d4aa]" />
                 ) : (
-                  <Bot size={12} className="text-white" />
+                  <Bot size={12} className="text-[#00d4aa]" />
                 )}
               </div>
             )}
@@ -148,8 +139,8 @@ export function AIChatPanel() {
               className={`
                 max-w-[85%] rounded-lg px-3 py-2 text-[12px] font-mono leading-relaxed
                 ${msg.role === 'user'
-                  ? 'bg-white/[0.06] text-[#e6edf3]'
-                  : 'bg-[#0d1117] border border-white/[0.06] text-[#8b949e]'
+                  ? 'bg-[rgba(0,212,170,0.08)] text-[#e6edf3]'
+                  : 'bg-[#0d1117] border border-[rgba(0,212,170,0.08)] text-[#6e7681]'
                 }
               `}
             >
@@ -159,10 +150,10 @@ export function AIChatPanel() {
         ))}
         {isAiLoading && (
           <div className="flex gap-2 items-start">
-            <div className="w-6 h-6 rounded bg-white/[0.06] flex items-center justify-center shrink-0">
-              <Loader2 size={12} className="text-white animate-spin" />
+            <div className="w-6 h-6 rounded bg-[rgba(0,212,170,0.08)] flex items-center justify-center shrink-0">
+              <Loader2 size={12} className="text-[#00d4aa] animate-spin" />
             </div>
-            <div className="bg-[#0d1117] border border-white/[0.06] rounded-lg px-3 py-2 text-[12px] text-[#484f58] font-mono">
+            <div className="bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded-lg px-3 py-2 text-[12px] text-[#30363d] font-mono">
               Thinking...
             </div>
           </div>
@@ -171,8 +162,8 @@ export function AIChatPanel() {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-white/[0.06]">
-        <div className="flex items-end gap-2 bg-[#0d1117] border border-white/[0.08] rounded-lg px-3 py-2 focus-within:border-white/[0.15] transition-colors">
+      <div className="p-3 border-t border-[rgba(0,212,170,0.08)]">
+        <div className="flex items-end gap-2 bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded-lg px-3 py-2 focus-within:border-[rgba(0,212,170,0.25)] transition-colors">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -184,7 +175,7 @@ export function AIChatPanel() {
             }}
             placeholder={`Ask ${currentProvider?.name}...`}
             rows={1}
-            className="flex-1 bg-transparent text-[12px] text-[#e6edf3] placeholder-[#3d4450] outline-none font-mono resize-none min-h-[20px] max-h-[80px]"
+            className="flex-1 bg-transparent text-[12px] text-[#e6edf3] placeholder-[#30363d] outline-none font-mono resize-none min-h-[20px] max-h-[80px]"
           />
           <button
             onClick={handleSend}
@@ -192,8 +183,8 @@ export function AIChatPanel() {
             className={`
               p-1 rounded transition-all cursor-pointer
               ${input.trim() && !isAiLoading
-                ? 'text-white hover:bg-white/[0.06]'
-                : 'text-[#3d4450] cursor-not-allowed'
+                ? 'text-[#00d4aa] hover:bg-[rgba(0,212,170,0.08)]'
+                : 'text-[#30363d] cursor-not-allowed'
               }
             `}
           >

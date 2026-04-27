@@ -1,14 +1,20 @@
 {
   "name": "AICodeStudio",
   "short_name": "AICode",
-  "description": "Next-generation AI-powered IDE with OpenClaw & Hermes integration, GitHub connectivity, and Monaco Editor",
+  "description": "Next-generation AI-powered IDE with OpenClaw & Hermes integration, Monaco Editor, and GitHub connectivity. Install as a desktop application.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#080c12",
+  "theme_color": "#080c12",
   "orientation": "any",
   "scope": "/",
   "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
@@ -22,7 +28,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["development", "productivity", "utilities"],
+  "categories": ["development", "productivity", "utilities", "developer-tools"],
   "shortcuts": [
     {
       "name": "New File",
@@ -34,6 +40,12 @@
       "name": "AI Assistant",
       "short_name": "AI",
       "url": "/?panel=ai",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Terminal",
+      "short_name": "Term",
+      "url": "/?panel=terminal",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

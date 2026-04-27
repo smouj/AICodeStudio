@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AICodeStudio — Next-Generation AI-Powered IDE</title>
+  <meta name="description" content="Free, open-source, AI-first code editor that runs in your browser. Install as a desktop app like VSCode — no Electron required.">
+  <meta name="theme-color" content="#080c12">
+  <meta property="og:title" content="AICodeStudio — AI-Powered IDE">
+  <meta property="og:description" content="Next-generation open-source AI-powered IDE. Install as a desktop app.">
+  <meta property="og:image" content="social-banner.svg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AICodeStudio — AI-Powered IDE">
+  <meta name="twitter:description" content="Next-Generation AI-Powered IDE. Open Source. Installable. AI-First.">
+  <meta name="twitter:image" content="social-banner.svg">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-0: #050810;
+      --bg-1: #080c12;
+      --bg-2: #0a0e14;
+      --bg-3: #0d1117;
+      --bg-4: #161b22;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #484f58;
+      --text-dim: #30363d;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.12);
+      --accent-glow: rgba(0, 212, 170, 0.25);
+      --radius: 12px;
+    }
+
+    body {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+      background: var(--bg-1);
+      color: var(--text-secondary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.02;
+      background-image:
+        linear-gradient(rgba(0,212,170,0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,170,0.3) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .hero-glow {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(0,212,170,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1.5rem;
+      filter: drop-shadow(0 0 20px rgba(0,212,170,0.2));
+    }
+
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -2px;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero h1 span {
+      color: var(--accent);
+    }
+
+    .hero .tagline {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      font-weight: 400;
+    }
+
+    .badges {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(0,212,170,0.15);
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg-0);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 20px rgba(0,212,170,0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid rgba(0,212,170,0.15);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Screenshot */
+    .screenshot-section {
+      padding: 0 2rem 4rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .screenshot-wrapper {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid rgba(0,212,170,0.08);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,170,0.05);
+    }
+
+    .screenshot-wrapper img {
+      width: 100%;
+      display: block;
+    }
+
+    /* Features */
+    .features {
+      padding: 4rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 2rem;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .features .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 3rem;
+      font-size: 0.95rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-2);
+      border: 1px solid rgba(0,212,170,0.06);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(0,212,170,0.15);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    .feature-card h3 {
+      color: var(--text-primary);
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    /* Install Section */
+    .install-section {
+      padding: 4rem 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .install-section h2 {
+      font-size: 2rem;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .install-section .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      text-align: left;
+    }
+
+    .install-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      background: var(--bg-2);
+      border: 1px solid rgba(0,212,170,0.06);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .step-content p {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .code-block {
+      background: var(--bg-0);
+      border: 1px solid rgba(0,212,170,0.08);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--accent);
+      overflow-x: auto;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      border-top: 1px solid rgba(0,212,170,0.06);
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.5rem; }
+      .hero .tagline { font-size: 0.95rem; }
+      .features-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <img src="logo.svg" alt="AICodeStudio Logo" class="logo" />
+    <h1>AI<span>Code</span>Studio</h1>
+    <p class="tagline">Next-Generation AI-Powered IDE — Open Source & Installable</p>
+
+    <div class="badges">
+      <span class="badge">&#x1F916; OpenClaw AI</span>
+      <span class="badge">&#x26A1; Hermes AI</span>
+      <span class="badge">&#x1F4BB; Monaco Editor</span>
+      <span class="badge">&#x1F4E6; PWA Desktop</span>
+      <span class="badge">&#x1F310; GitHub</span>
+    </div>
+
+    <div class="cta-group">
+      <a href="https://github.com/AICodeStudio/aicodestudio" class="btn btn-primary">
+        &#x2B50; Star on GitHub
+      </a>
+      <a href="#install" class="btn btn-secondary">
+        &#x1F4E5; Install Now
+      </a>
+      <a href="https://github.com/AICodeStudio/aicodestudio/fork" class="btn btn-secondary">
+        &#x1F500; Fork
+      </a>
+    </div>
+
+    <div style="color: var(--text-dim); font-size: 0.75rem;">
+      v1.0.0 &middot; MIT License &middot; TypeScript &middot; React 19 &middot; Next.js 16
+    </div>
+  </section>
+
+  <!-- Screenshot -->
+  <section class="screenshot-section">
+    <div class="screenshot-wrapper">
+      <img src="screenshot.png" alt="AICodeStudio Screenshot" />
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <h2>Why AICodeStudio?</h2>
+    <p class="subtitle">Everything you need for AI-powered development, in one place.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F916;</div>
+        <h3>AI-First Development</h3>
+        <p>Connect to OpenClaw or Hermes AI providers for intelligent code completion, refactoring, bug detection, and conversational code assistance right in your sidebar.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4DD;</div>
+        <h3>Monaco Editor</h3>
+        <p>The same editor engine that powers VSCode, with IntelliSense, syntax highlighting for 20+ languages, bracket pair colorization, and smooth cursor animations.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4CB;</div>
+        <h3>Smart TODOs</h3>
+        <p>Manage tasks with priority levels. AI agent suggestions appear automatically. Filter by status, clear completed tasks, and track what matters.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F310;</div>
+        <h3>GitHub Integration</h3>
+        <p>Clone repositories directly, discover trending projects, and manage your source control without leaving the IDE.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4E6;</div>
+        <h3>Install as Desktop App</h3>
+        <p>PWA support means you can install AICodeStudio as a native desktop application on Windows, macOS, and Linux — no Electron required.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3A8;</div>
+        <h3>Refined Dark Theme</h3>
+        <p>Meticulously crafted color system with teal accent on deep black backgrounds. ASCII art backdrops, grid overlays, and subtle glow effects for a futuristic feel.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="install-section" id="install">
+    <h2>Get Started in Seconds</h2>
+    <p class="subtitle">Three ways to use AICodeStudio — pick what works for you.</p>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Quick Try — Run Locally</h4>
+          <p>Clone the repo and start developing immediately.</p>
+          <div class="code-block">
+            git clone https://github.com/AICodeStudio/aicodestudio.git<br>
+            cd aicodestudio<br>
+            npm install<br>
+            npm run dev
+          </div>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Install as Desktop App</h4>
+          <p>Open AICodeStudio in Chrome or Edge, then click the install icon in the address bar. It launches as a standalone application — just like VSCode.</p>
+        </div>
+      </div>
+
+      <div class="install-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Deploy Your Own</h4>
+          <p>Build for production and deploy anywhere that supports Node.js.</p>
+          <div class="code-block">
+            npm run build<br>
+            npm start
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Built with &#x2764;&#xFE0F; by the <a href="https://github.com/AICodeStudio">AICodeStudio Team</a></p>
+    <p style="margin-top: 0.5rem;">MIT License &middot; Open Source &middot; AI-First</p>
+  </footer>
+
+</body>
+</html>
