@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { v4 as uuidv4 } from 'uuid'
 
 export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos'
 export type BottomPanel = 'terminal' | 'output' | 'problems' | 'debug'
@@ -10,7 +11,6 @@ export interface FileNode {
   children?: FileNode[]
   language?: string
   content?: string
-  isExpanded?: boolean
 }
 
 export interface TabInfo {
@@ -47,6 +47,20 @@ export interface TodoItem {
   source?: 'user' | 'agent'
 }
 
+// Cursor position from Monaco editor
+export interface CursorPosition {
+  line: number
+  column: number
+}
+
+// Notification type
+export interface Notification {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  message: string
+  timestamp: number
+}
+
 interface IDEState {
   // Sidebar
   activeSidebarPanel: SidebarPanel
@@ -56,6 +70,7 @@ interface IDEState {
   // Editor
   openTabs: TabInfo[]
   activeTabId: string | null
+  cursorPosition: CursorPosition
 
   // Bottom Panel
   bottomPanelVisible: boolean
@@ -64,7 +79,7 @@ interface IDEState {
 
   // File System
   fileTree: FileNode[]
-  expandedFolders: Set<string>
+  expandedFolders: Record<string, boolean>
 
   // AI
   aiProviders: AIProvider[]
@@ -89,6 +104,13 @@ interface IDEState {
   // TODOs
   todos: TodoItem[]
 
+  // Notifications
+  notifications: Notification[]
+
+  // PWA
+  pwaInstallPrompt: unknown | null
+  pwaInstallAvailable: boolean
+
   // Actions
   setActiveSidebarPanel: (panel: SidebarPanel) => void
   toggleSidebar: () => void
@@ -98,18 +120,21 @@ interface IDEState {
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   updateTabContent: (tabId: string, content: string) => void
+  setCursorPosition: (position: CursorPosition) => void
 
   toggleBottomPanel: () => void
   setBottomPanelHeight: (height: number) => void
   setActiveBottomPanel: (panel: BottomPanel) => void
 
   toggleFolder: (path: string) => void
+  isFolderExpanded: (path: string) => boolean
   setFileTree: (tree: FileNode[]) => void
 
   addChatMessage: (message: ChatMessage) => void
+  clearChatMessages: () => void
   setAiLoading: (loading: boolean) => void
   setActiveAiProvider: (provider: 'openclaw' | 'hermes') => void
-  updateAiProvider: (id: string, updates: Partial<AIProvider>) => void
+  updateAiProvider: (id: string, updates: Omit<Partial<AIProvider>, 'id'>) => void
 
   setGitCloneUrl: (url: string) => void
   setIsGitCloning: (cloning: boolean) => void
@@ -119,6 +144,7 @@ interface IDEState {
   setTheme: (theme: 'dark' | 'light') => void
 
   addTerminalHistory: (entry: string) => void
+  clearTerminalHistory: () => void
 
   // TODO actions
   addTodo: (text: string, priority?: TodoItem['priority'], source?: TodoItem['source']) => void
@@ -126,6 +152,14 @@ interface IDEState {
   removeTodo: (id: string) => void
   updateTodo: (id: string, updates: Partial<Pick<TodoItem, 'text' | 'priority'>>) => void
   clearCompletedTodos: () => void
+
+  // Notification actions
+  addNotification: (type: Notification['type'], message: string) => void
+  removeNotification: (id: string) => void
+
+  // PWA actions
+  setPwaInstallPrompt: (prompt: unknown) => void
+  setPwaInstallAvailable: (available: boolean) => void
 }
 
 const defaultFileTree: FileNode[] = [
@@ -133,19 +167,16 @@ const defaultFileTree: FileNode[] = [
     name: 'AICodeStudio',
     path: '/AICodeStudio',
     type: 'folder',
-    isExpanded: true,
     children: [
       {
         name: 'src',
         path: '/AICodeStudio/src',
         type: 'folder',
-        isExpanded: true,
         children: [
           {
             name: 'app',
             path: '/AICodeStudio/src/app',
             type: 'folder',
-            isExpanded: false,
             children: [
               { name: 'page.tsx', path: '/AICodeStudio/src/app/page.tsx', type: 'file', language: 'typescript' },
               { name: 'layout.tsx', path: '/AICodeStudio/src/app/layout.tsx', type: 'file', language: 'typescript' },
@@ -156,7 +187,6 @@ const defaultFileTree: FileNode[] = [
             name: 'components',
             path: '/AICodeStudio/src/components',
             type: 'folder',
-            isExpanded: false,
             children: [
               { name: 'Editor.tsx', path: '/AICodeStudio/src/components/Editor.tsx', type: 'file', language: 'typescript' },
               { name: 'Sidebar.tsx', path: '/AICodeStudio/src/components/Sidebar.tsx', type: 'file', language: 'typescript' },
@@ -167,7 +197,6 @@ const defaultFileTree: FileNode[] = [
             name: 'lib',
             path: '/AICodeStudio/src/lib',
             type: 'folder',
-            isExpanded: false,
             children: [
               { name: 'utils.ts', path: '/AICodeStudio/src/lib/utils.ts', type: 'file', language: 'typescript' },
               { name: 'ai-providers.ts', path: '/AICodeStudio/src/lib/ai-providers.ts', type: 'file', language: 'typescript' },
@@ -179,7 +208,6 @@ const defaultFileTree: FileNode[] = [
         name: 'public',
         path: '/AICodeStudio/public',
         type: 'folder',
-        isExpanded: false,
         children: [
           { name: 'logo.svg', path: '/AICodeStudio/public/logo.svg', type: 'file', language: 'xml' },
         ],
@@ -208,6 +236,11 @@ const sampleFileContents: Record<string, string> = {
   '/AICodeStudio/public/logo.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n  <rect width="100" height="100" rx="12" fill="#0d1117"/>\n  <text x="50" y="60" text-anchor="middle" fill="#00e5ff" font-size="40" font-family="monospace">&lt;/&gt;</text>\n</svg>`,
 }
 
+// Generate unique IDs using uuid
+function generateId(prefix: string = 'id'): string {
+  return `${prefix}-${uuidv4().slice(0, 8)}`
+}
+
 export const useIDEStore = create<IDEState>((set, get) => ({
   // Sidebar
   activeSidebarPanel: 'explorer',
@@ -217,15 +250,16 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   // Editor
   openTabs: [],
   activeTabId: null,
+  cursorPosition: { line: 1, column: 1 },
 
   // Bottom Panel
   bottomPanelVisible: true,
   bottomPanelHeight: 220,
   activeBottomPanel: 'terminal',
 
-  // File System
+  // File System — using Record<string, boolean> for JSON serialization
   fileTree: defaultFileTree,
-  expandedFolders: new Set(['/AICodeStudio', '/AICodeStudio/src']),
+  expandedFolders: { '/AICodeStudio': true, '/AICodeStudio/src': true },
 
   // AI
   aiProviders: [
@@ -256,13 +290,21 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   // TODOs
   todos: [
-    { id: 'todo-1', text: 'Configure OpenClaw API key', completed: false, priority: 'high', createdAt: Date.now() - 86400000, source: 'agent' },
-    { id: 'todo-2', text: 'Set up project file structure', completed: true, priority: 'high', createdAt: Date.now() - 172800000, source: 'agent' },
-    { id: 'todo-3', text: 'Connect Hermes provider', completed: false, priority: 'medium', createdAt: Date.now() - 43200000, source: 'user' },
-    { id: 'todo-4', text: 'Review code architecture', completed: false, priority: 'low', createdAt: Date.now() - 21600000, source: 'agent' },
+    { id: generateId('todo'), text: 'Configure OpenClaw API key', completed: false, priority: 'high', createdAt: Date.now() - 86400000, source: 'agent' },
+    { id: generateId('todo'), text: 'Set up project file structure', completed: true, priority: 'high', createdAt: Date.now() - 172800000, source: 'agent' },
+    { id: generateId('todo'), text: 'Connect Hermes provider', completed: false, priority: 'medium', createdAt: Date.now() - 43200000, source: 'user' },
+    { id: generateId('todo'), text: 'Review code architecture', completed: false, priority: 'low', createdAt: Date.now() - 21600000, source: 'agent' },
   ],
 
-  // Actions
+  // Notifications
+  notifications: [],
+
+  // PWA
+  pwaInstallPrompt: null,
+  pwaInstallAvailable: false,
+
+  // ─── Actions ────────────────────────────────────────────
+
   setActiveSidebarPanel: (panel) =>
     set((state) => ({
       activeSidebarPanel: panel,
@@ -270,7 +312,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     })),
 
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
-  setSidebarWidth: (width) => set({ sidebarWidth: width }),
+  setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(500, width)) }),
 
   openFile: (file) =>
     set((state) => {
@@ -279,7 +321,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
         return { activeTabId: existingTab.id }
       }
       const newTab: TabInfo = {
-        id: `tab-${Date.now()}`,
+        id: generateId('tab'),
         path: file.path,
         name: file.name,
         language: file.language || 'plaintext',
@@ -294,6 +336,8 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   closeTab: (tabId) =>
     set((state) => {
+      const closingTab = state.openTabs.find((t) => t.id === tabId)
+      // Auto-save: remove modified flag when closing
       const newTabs = state.openTabs.filter((t) => t.id !== tabId)
       const newActiveId =
         state.activeTabId === tabId
@@ -301,6 +345,9 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             ? newTabs[newTabs.length - 1].id
             : null
           : state.activeTabId
+      if (closingTab?.isModified) {
+        get().addNotification('info', `Closed ${closingTab.name} (unsaved changes discarded)`)
+      }
       return { openTabs: newTabs, activeTabId: newActiveId }
     }),
 
@@ -313,24 +360,26 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       ),
     })),
 
+  setCursorPosition: (position) => set({ cursorPosition: position }),
+
   toggleBottomPanel: () => set((state) => ({ bottomPanelVisible: !state.bottomPanelVisible })),
-  setBottomPanelHeight: (height) => set({ bottomPanelHeight: height }),
+  setBottomPanelHeight: (height) => set({ bottomPanelHeight: Math.max(100, Math.min(500, height)) }),
   setActiveBottomPanel: (panel) => set({ activeBottomPanel: panel, bottomPanelVisible: true }),
 
   toggleFolder: (path) =>
-    set((state) => {
-      const newExpanded = new Set(state.expandedFolders)
-      if (newExpanded.has(path)) {
-        newExpanded.delete(path)
-      } else {
-        newExpanded.add(path)
-      }
-      return { expandedFolders: newExpanded }
-    }),
+    set((state) => ({
+      expandedFolders: {
+        ...state.expandedFolders,
+        [path]: !state.expandedFolders[path],
+      },
+    })),
+
+  isFolderExpanded: (path) => !!get().expandedFolders[path],
 
   setFileTree: (tree) => set({ fileTree: tree }),
 
   addChatMessage: (message) => set((state) => ({ chatMessages: [...state.chatMessages, message] })),
+  clearChatMessages: () => set({ chatMessages: [] }),
   setAiLoading: (loading) => set({ isAiLoading: loading }),
   setActiveAiProvider: (provider) => set({ activeAiProvider: provider }),
   updateAiProvider: (id, updates) =>
@@ -346,12 +395,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (theme) => set({ theme }),
 
   addTerminalHistory: (entry) => set((state) => ({ terminalHistory: [...state.terminalHistory, entry] })),
+  clearTerminalHistory: () => set({ terminalHistory: ['$ AICodeStudio v1.0.0 — Ready', ''] }),
 
   // TODO actions
   addTodo: (text, priority = 'medium', source = 'user') =>
     set((state) => ({
       todos: [...state.todos, {
-        id: `todo-${Date.now()}`,
+        id: generateId('todo'),
         text,
         completed: false,
         priority,
@@ -379,4 +429,25 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set((state) => ({
       todos: state.todos.filter((t) => !t.completed),
     })),
+
+  // Notification actions
+  addNotification: (type, message) => {
+    const id = generateId('notif')
+    set((state) => ({
+      notifications: [...state.notifications, { id, type, message, timestamp: Date.now() }],
+    }))
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      get().removeNotification(id)
+    }, 4000)
+  },
+
+  removeNotification: (id) =>
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    })),
+
+  // PWA actions
+  setPwaInstallPrompt: (prompt) => set({ pwaInstallPrompt: prompt, pwaInstallAvailable: !!prompt }),
+  setPwaInstallAvailable: (available) => set({ pwaInstallAvailable: available }),
 }))

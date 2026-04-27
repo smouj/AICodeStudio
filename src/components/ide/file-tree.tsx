@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react'
 import { useIDEStore, type FileNode } from '@/store/ide-store'
 
@@ -22,13 +23,16 @@ function getFileIconColor(name: string): string {
   return colors[ext || ''] || '#484f58'
 }
 
-function FileTreeItem({ node, depth }: { node: FileNode; depth: number }) {
-  const { expandedFolders, toggleFolder, openFile } = useIDEStore()
-  const isExpanded = expandedFolders.has(node.path)
+const FileTreeItem = memo(function FileTreeItem({ node, depth }: { node: FileNode; depth: number }) {
+  const expandedFolders = useIDEStore((s) => s.expandedFolders)
+  const toggleFolder = useIDEStore((s) => s.toggleFolder)
+  const openFile = useIDEStore((s) => s.openFile)
+
+  const isExpanded = !!expandedFolders[node.path]
   const isFolder = node.type === 'folder'
 
   return (
-    <div>
+    <div role="treeitem" aria-expanded={isFolder ? isExpanded : undefined}>
       <div
         className={`
           flex items-center gap-1 py-[3px] pr-3 cursor-pointer
@@ -44,6 +48,13 @@ function FileTreeItem({ node, depth }: { node: FileNode; depth: number }) {
             openFile(node)
           }
         }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (isFolder) toggleFolder(node.path)
+            else openFile(node)
+          }
+        }}
+        tabIndex={0}
       >
         {isFolder ? (
           <>
@@ -69,7 +80,7 @@ function FileTreeItem({ node, depth }: { node: FileNode; depth: number }) {
         </span>
       </div>
       {isFolder && isExpanded && node.children && (
-        <div>
+        <div role="group">
           {node.children
             .sort((a, b) => {
               if (a.type === 'folder' && b.type === 'file') return -1
@@ -83,13 +94,13 @@ function FileTreeItem({ node, depth }: { node: FileNode; depth: number }) {
       )}
     </div>
   )
-}
+})
 
 export function FileExplorer() {
-  const { fileTree } = useIDEStore()
+  const fileTree = useIDEStore((s) => s.fileTree)
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" role="tree" aria-label="File explorer">
       <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
         <span>Explorer</span>
         <span className="text-[#00d4aa]/30 font-mono text-[10px]">AICODESTUDIO</span>

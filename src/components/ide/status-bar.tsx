@@ -1,52 +1,83 @@
 'use client'
 
-import { GitBranch, AlertCircle, CheckCircle2, Wifi, WifiOff, Bot } from 'lucide-react'
+import { memo } from 'react'
+import { GitBranch, AlertCircle, CheckCircle2, Wifi, WifiOff, Bot, Download } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
 
-export function StatusBar() {
-  const { activeTabId, openTabs, activeAiProvider, aiProviders, theme, setTheme } = useIDEStore()
+export const StatusBar = memo(function StatusBar() {
+  const activeTabId = useIDEStore((s) => s.activeTabId)
+  const openTabs = useIDEStore((s) => s.openTabs)
+  const activeAiProvider = useIDEStore((s) => s.activeAiProvider)
+  const aiProviders = useIDEStore((s) => s.aiProviders)
+  const theme = useIDEStore((s) => s.theme)
+  const setTheme = useIDEStore((s) => s.setTheme)
+  const cursorPosition = useIDEStore((s) => s.cursorPosition)
+  const pwaInstallAvailable = useIDEStore((s) => s.pwaInstallAvailable)
+  const pwaInstallPrompt = useIDEStore((s) => s.pwaInstallPrompt)
 
   const activeTab = openTabs.find((t) => t.id === activeTabId)
   const currentProvider = aiProviders.find((p) => p.id === activeAiProvider)
 
+  const handlePwaInstall = async () => {
+    if (!pwaInstallPrompt) return
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (pwaInstallPrompt as any).prompt()
+    } catch {
+      // User dismissed or already installed
+    }
+  }
+
   return (
-    <div className="h-6 bg-[#050810] border-t border-[rgba(0,212,170,0.08)] flex items-center justify-between px-3 text-[11px] font-mono shrink-0 select-none">
+    <div className="h-6 bg-[#050810] border-t border-[rgba(0,212,170,0.08)] flex items-center justify-between px-3 text-[11px] font-mono shrink-0 select-none" role="status" aria-label="Status bar">
       <div className="flex items-center gap-3">
         {/* Git Branch */}
         <div className="flex items-center gap-1 text-[#00d4aa]/60 hover:text-[#00d4aa] cursor-pointer transition-colors">
-          <GitBranch size={12} />
+          <GitBranch size={12} aria-hidden="true" />
           <span>main</span>
         </div>
 
         {/* Errors/Warnings */}
         <div className="flex items-center gap-2 text-[#30363d]">
           <div className="flex items-center gap-0.5 hover:text-[#8b949e] cursor-pointer">
-            <AlertCircle size={12} className="text-[#ffa657]" />
+            <AlertCircle size={12} className="text-[#ffa657]" aria-hidden="true" />
             <span>0</span>
           </div>
           <div className="flex items-center gap-0.5 hover:text-[#8b949e] cursor-pointer">
-            <CheckCircle2 size={12} className="text-[#3fb950]" />
+            <CheckCircle2 size={12} className="text-[#3fb950]" aria-hidden="true" />
             <span>0</span>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
+        {/* PWA Install */}
+        {pwaInstallAvailable && (
+          <button
+            onClick={handlePwaInstall}
+            className="flex items-center gap-1 text-[#00d4aa]/60 hover:text-[#00d4aa] transition-colors cursor-pointer"
+            aria-label="Install AICodeStudio as desktop app"
+          >
+            <Download size={10} />
+            <span>Install</span>
+          </button>
+        )}
+
         {/* AI Provider Status */}
         <div className="flex items-center gap-1 text-[#30363d] hover:text-[#00d4aa] cursor-pointer transition-colors">
-          <Bot size={11} />
+          <Bot size={11} aria-hidden="true" />
           <span>{currentProvider?.name}</span>
           {currentProvider?.status === 'connected' ? (
-            <Wifi size={9} className="text-[#00d4aa]" />
+            <Wifi size={9} className="text-[#00d4aa]" aria-label="Connected" />
           ) : (
-            <WifiOff size={9} className="text-[#f85149]" />
+            <WifiOff size={9} className="text-[#f85149]" aria-label="Disconnected" />
           )}
         </div>
 
         {/* File Info */}
         {activeTab && (
           <>
-            <span className="text-[#30363d]">Ln 1, Col 1</span>
+            <span className="text-[#30363d]">Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
             <span className="text-[#30363d]">Spaces: 2</span>
             <span className="text-[#484f58]">UTF-8</span>
             <span className="text-[#484f58]">{activeTab.language}</span>
@@ -57,10 +88,11 @@ export function StatusBar() {
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="text-[#30363d] hover:text-[#00d4aa] transition-colors cursor-pointer"
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
         >
           {theme === 'dark' ? '☀' : '☾'}
         </button>
       </div>
     </div>
   )
-}
+})
