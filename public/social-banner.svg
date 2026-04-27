@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" fill="none">
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#000000"/>
+  
+  <!-- ASCII pattern background -->
+  <text font-family="monospace" font-size="10" fill="#ffffff" opacity="0.03">
+    <tspan x="20" y="20">01001100 01101111 01110110 01100101 00100000 01100001 01101110 01100100 00100000 01000011 01101111 01100100 01100101</tspan>
+    <tspan x="20" y="36">10101010 01010101 11001100 00110011 11110000 00001111 10101010 01010101 11001100 00110011 11110000 00001111</tspan>
+    <tspan x="20" y="52">#!/usr/bin/env node │ const app = createIDE() │ app.listen(3000) │ AICodeStudio.ready()</tspan>
+    <tspan x="20" y="68">&lt;AICodeStudio /&gt; ├── src/ ├── components/ ├── lib/ ├── app/ │── page.tsx │── layout.tsx</tspan>
+    <tspan x="20" y="84">████╗ ███████╗ ██████╗██╗  ██╗███████╗██████╗ ██╔══██╗██╔════╝██╔════╝██║  ██║██╔════╝██╔══██╗</tspan>
+    <tspan x="20" y="600">git clone https://github.com/aicodestudio/aicodestudio.git │ npm install │ bun dev │ open http://localhost:3000</tspan>
+    <tspan x="20" y="616">MIT License │ Open Source │ Built with Next.js + Monaco Editor │ AI-Powered Development</tspan>
+    <tspan x="20" y="632">████████████████████████████████████████████████████████████████████████████████████████</tspan>
+  </text>
+  
+  <!-- Grid lines -->
+  <line x1="0" y1="320" x2="1280" y2="320" stroke="#ffffff" stroke-width="0.5" opacity="0.03"/>
+  <line x1="640" y1="0" x2="640" y2="640" stroke="#ffffff" stroke-width="0.5" opacity="0.03"/>
+  
+  <!-- Logo - centered -->
+  <g transform="translate(516, 170)">
+    <!-- Rounded square background -->
+    <rect width="248" height="248" rx="48" fill="#ffffff" opacity="0.05"/>
+    <rect x="4" y="4" width="240" height="240" rx="44" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.15"/>
+    
+    <!-- Code bracket left < -->
+    <path d="M82 68 L32 124 L82 180" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Code bracket right > -->
+    <path d="M166 68 L216 124 L166 180" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Slash / -->
+    <line x1="145" y1="58" x2="103" y2="190" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    
+    <!-- AI dot -->
+    <circle cx="124" cy="40" r="6" fill="#ffffff" opacity="0.6"/>
+    <line x1="124" y1="46" x2="124" y2="56" stroke="#ffffff" stroke-width="1.5" opacity="0.3"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="640" y="478" text-anchor="middle" font-family="'SF Pro Display', 'Segoe UI', system-ui, sans-serif" font-size="48" font-weight="700" fill="#ffffff" letter-spacing="-1">
+    AICodeStudio
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="640" y="516" text-anchor="middle" font-family="'SF Mono', 'JetBrains Mono', monospace" font-size="16" fill="#ffffff" opacity="0.5" letter-spacing="4">
+    NEXT-GENERATION AI-POWERED IDE
+  </text>
+  
+  <!-- Tagline -->
+  <text x="640" y="552" text-anchor="middle" font-family="'SF Mono', 'JetBrains Mono', monospace" font-size="12" fill="#ffffff" opacity="0.3">
+    OpenClaw · Hermes · GitHub · Monaco Editor
+  </text>
+  
+  <!-- Bottom border accent -->
+  <rect x="520" y="580" width="240" height="2" rx="1" fill="#ffffff" opacity="0.2"/>
+</svg>

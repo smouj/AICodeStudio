@@ -14,12 +14,12 @@ export function SearchPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#5a6270] border-b border-[#00e5ff]/10">
+      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#484f58] border-b border-white/[0.06]">
         <span>Search</span>
       </div>
       <div className="p-3">
-        <div className="flex items-center gap-2 bg-[#0d1117] border border-[#00e5ff]/20 rounded px-3 py-1.5 focus-within:border-[#00e5ff]/50 transition-colors">
-          <Search size={14} className="text-[#5a6270] shrink-0" />
+        <div className="flex items-center gap-2 bg-[#0d1117] border border-white/[0.08] rounded px-3 py-1.5 focus-within:border-white/[0.15] transition-colors">
+          <Search size={14} className="text-[#484f58] shrink-0" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -27,13 +27,13 @@ export function SearchPanel() {
             className="flex-1 bg-transparent text-[13px] text-[#e6edf3] placeholder-[#3d4450] outline-none font-mono"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-[#5a6270] hover:text-[#8b949e] cursor-pointer">
+            <button onClick={() => setQuery('')} className="text-[#484f58] hover:text-[#8b949e] cursor-pointer">
               <X size={14} />
             </button>
           )}
         </div>
         <div className="flex items-center gap-2 mt-2 text-[11px] text-[#3d4450]">
-          <button className="flex items-center gap-1 hover:text-[#5a6270] transition-colors cursor-pointer">
+          <button className="flex items-center gap-1 hover:text-[#484f58] transition-colors cursor-pointer">
             <ChevronDown size={10} />
             <span>.*</span>
           </button>
@@ -46,13 +46,13 @@ export function SearchPanel() {
         {results.map((r, i) => (
           <div
             key={i}
-            className="px-2 py-1.5 hover:bg-[#00e5ff]/5 cursor-pointer transition-colors rounded"
+            className="px-2 py-1.5 hover:bg-white/[0.03] cursor-pointer transition-colors rounded"
           >
             <div className="flex items-center gap-2 text-[12px]">
-              <span className="text-[#00e5ff]/70 font-mono">{r.file}</span>
+              <span className="text-[#8b949e] font-mono">{r.file}</span>
               <span className="text-[#3d4450]">:{r.line}</span>
             </div>
-            <div className="text-[11px] text-[#5a6270] font-mono mt-0.5 pl-3">
+            <div className="text-[11px] text-[#484f58] font-mono mt-0.5 pl-3">
               {r.text}
             </div>
           </div>

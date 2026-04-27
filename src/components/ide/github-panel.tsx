@@ -33,15 +33,15 @@ export function GitHubPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#5a6270] border-b border-[#00e5ff]/10">
+      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#484f58] border-b border-white/[0.06]">
         <span>GitHub</span>
-        <ExternalLink size={12} className="text-[#3d4450] hover:text-[#5a6270] cursor-pointer" />
+        <ExternalLink size={12} className="text-[#3d4450] hover:text-[#484f58] cursor-pointer" />
       </div>
 
       {/* Clone Section */}
-      <div className="p-3 border-b border-[#00e5ff]/10">
+      <div className="p-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2 mb-2">
-          <GitFork size={14} className="text-[#00e5ff]/70" />
+          <GitFork size={14} className="text-[#8b949e]" />
           <span className="text-[12px] text-[#8b949e] font-mono">Clone Repository</span>
         </div>
         <div className="flex gap-2">
@@ -49,7 +49,7 @@ export function GitHubPanel() {
             value={gitCloneUrl}
             onChange={(e) => setGitCloneUrl(e.target.value)}
             placeholder="https://github.com/user/repo.git"
-            className="flex-1 bg-[#0d1117] border border-[#00e5ff]/20 rounded px-3 py-1.5 text-[12px] text-[#e6edf3] placeholder-[#3d4450] outline-none font-mono focus:border-[#00e5ff]/50 transition-colors"
+            className="flex-1 bg-[#0d1117] border border-white/[0.08] rounded px-3 py-1.5 text-[12px] text-[#e6edf3] placeholder-[#3d4450] outline-none font-mono focus:border-white/[0.15] transition-colors"
           />
           <button
             onClick={handleClone}
@@ -59,8 +59,8 @@ export function GitHubPanel() {
               ${cloneSuccess
                 ? 'bg-[#3fb950]/10 text-[#3fb950]'
                 : isGitCloning
-                  ? 'bg-[#00e5ff]/5 text-[#3d4450] cursor-not-allowed'
-                  : 'bg-[#00e5ff]/10 text-[#00e5ff] hover:bg-[#00e5ff]/20'
+                  ? 'bg-white/[0.03] text-[#3d4450] cursor-not-allowed'
+                  : 'bg-white/[0.06] text-white hover:bg-white/[0.08]'
               }
             `}
           >
@@ -77,13 +77,13 @@ export function GitHubPanel() {
 
       {/* Cloned Repos */}
       {gitRepos.length > 0 && (
-        <div className="px-4 py-2 border-b border-[#00e5ff]/10">
-          <div className="text-[11px] uppercase tracking-wider text-[#5a6270] font-semibold mb-2">
+        <div className="px-4 py-2 border-b border-white/[0.06]">
+          <div className="text-[11px] uppercase tracking-wider text-[#484f58] font-semibold mb-2">
             Cloned Repos
           </div>
           {gitRepos.map((repo, i) => (
             <div key={i} className="flex items-center gap-2 py-1 text-[12px]">
-              <FolderGit2 size={12} className="text-[#00e5ff]/70" />
+              <FolderGit2 size={12} className="text-[#8b949e]" />
               <span className="text-[#8b949e] font-mono">{repo}</span>
             </div>
           ))}
@@ -92,7 +92,7 @@ export function GitHubPanel() {
 
       {/* Trending */}
       <div className="px-4 py-2">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[#5a6270] font-semibold mb-2">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[#484f58] font-semibold mb-2">
           <GitBranch size={12} />
           Trending
         </div>
@@ -101,11 +101,11 @@ export function GitHubPanel() {
         {trendingRepos.map((repo, i) => (
           <div
             key={i}
-            className="px-2 py-2 hover:bg-[#00e5ff]/5 cursor-pointer transition-colors rounded mb-0.5"
+            className="px-2 py-2 hover:bg-white/[0.03] cursor-pointer transition-colors rounded mb-0.5"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] text-[#00e5ff]/70 font-mono">{repo.owner}/</span>
+                <span className="text-[12px] text-[#8b949e] font-mono">{repo.owner}/</span>
                 <span className="text-[12px] text-[#e6edf3] font-mono font-semibold">{repo.name}</span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-[#3d4450]">
@@ -113,7 +113,7 @@ export function GitHubPanel() {
                 {repo.stars}
               </div>
             </div>
-            <div className="text-[11px] text-[#5a6270] mt-0.5">{repo.desc}</div>
+            <div className="text-[11px] text-[#484f58] mt-0.5">{repo.desc}</div>
             <div className="flex items-center gap-1.5 mt-1">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: repo.langColor }} />
               <span className="text-[10px] text-[#3d4450]">{repo.lang}</span>

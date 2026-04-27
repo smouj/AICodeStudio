@@ -86,7 +86,7 @@ export function TerminalPanel() {
   return (
     <div className="h-full flex flex-col bg-[#0d1117]">
       {/* Terminal Header */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#080c12] border-b border-[#00e5ff]/10 shrink-0">
+      <div className="flex items-center justify-between px-3 py-1 bg-[#060a10] border-b border-white/[0.06] shrink-0">
         <div className="flex items-center gap-1">
           {terminals.map((term) => (
             <button
@@ -95,8 +95,8 @@ export function TerminalPanel() {
               className={`
                 flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono rounded transition-colors cursor-pointer
                 ${activeTerm === term.id
-                  ? 'text-[#e6edf3] bg-[#00e5ff]/10'
-                  : 'text-[#5a6270] hover:text-[#8b949e]'
+                  ? 'text-[#e6edf3] bg-white/[0.06]'
+                  : 'text-[#484f58] hover:text-[#8b949e]'
                 }
               `}
             >
@@ -104,15 +104,15 @@ export function TerminalPanel() {
               {term.name}
             </button>
           ))}
-          <button className="text-[#3d4450] hover:text-[#5a6270] transition-colors ml-1 cursor-pointer">
+          <button className="text-[#3d4450] hover:text-[#484f58] transition-colors ml-1 cursor-pointer">
             <Plus size={12} />
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button className="text-[#3d4450] hover:text-[#5a6270] transition-colors cursor-pointer">
+          <button className="text-[#3d4450] hover:text-[#484f58] transition-colors cursor-pointer">
             <ChevronDown size={12} />
           </button>
-          <button className="text-[#3d4450] hover:text-[#5a6270] transition-colors cursor-pointer">
+          <button className="text-[#3d4450] hover:text-[#484f58] transition-colors cursor-pointer">
             <X size={12} />
           </button>
         </div>
@@ -125,17 +125,17 @@ export function TerminalPanel() {
         onClick={() => inputRef.current?.focus()}
       >
         {terminalHistory.map((line, i) => (
-          <div key={i} className={line.startsWith('$') ? 'text-[#e6edf3]' : line.startsWith('  ') ? 'text-[#5a6270]' : 'text-[#8b949e]'}>
+          <div key={i} className={line.startsWith('$') ? 'text-[#e6edf3]' : line.startsWith('  ') ? 'text-[#484f58]' : 'text-[#8b949e]'}>
             {line || '\u00A0'}
           </div>
         ))}
         <form onSubmit={handleSubmit} className="flex items-center">
-          <span className="text-[#00e5ff] mr-2">$</span>
+          <span className="text-white mr-2">$</span>
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="flex-1 bg-transparent text-[#e6edf3] outline-none caret-[#00e5ff]"
+            className="flex-1 bg-transparent text-[#e6edf3] outline-none caret-white"
             spellCheck={false}
             autoComplete="off"
           />

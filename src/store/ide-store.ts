@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings'
+export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos'
 export type BottomPanel = 'terminal' | 'output' | 'problems' | 'debug'
 
 export interface FileNode {
@@ -36,6 +36,15 @@ export interface AIProvider {
   status: 'connected' | 'disconnected' | 'connecting'
   model: string
   apiKey?: string
+}
+
+export interface TodoItem {
+  id: string
+  text: string
+  completed: boolean
+  priority: 'low' | 'medium' | 'high'
+  createdAt: number
+  source?: 'user' | 'agent'
 }
 
 interface IDEState {
@@ -77,6 +86,9 @@ interface IDEState {
   // Terminal
   terminalHistory: string[]
 
+  // TODOs
+  todos: TodoItem[]
+
   // Actions
   setActiveSidebarPanel: (panel: SidebarPanel) => void
   toggleSidebar: () => void
@@ -107,6 +119,13 @@ interface IDEState {
   setTheme: (theme: 'dark' | 'light') => void
 
   addTerminalHistory: (entry: string) => void
+
+  // TODO actions
+  addTodo: (text: string, priority?: TodoItem['priority'], source?: TodoItem['source']) => void
+  toggleTodo: (id: string) => void
+  removeTodo: (id: string) => void
+  updateTodo: (id: string, updates: Partial<Pick<TodoItem, 'text' | 'priority'>>) => void
+  clearCompletedTodos: () => void
 }
 
 const defaultFileTree: FileNode[] = [
@@ -174,197 +193,19 @@ const defaultFileTree: FileNode[] = [
 ]
 
 const sampleFileContents: Record<string, string> = {
-  '/AICodeStudio/src/app/page.tsx': `import { Editor } from '@/components/Editor'
-import { Sidebar } from '@/components/Sidebar'
-
-export default function Home() {
-  return (
-    <main className="flex h-screen">
-      <Sidebar />
-      <Editor />
-    </main>
-  )
-}`,
-  '/AICodeStudio/src/app/layout.tsx': `import type { Metadata } from 'next'
-import './globals.css'
-
-export const metadata: Metadata = {
-  title: 'AICodeStudio',
-  description: 'Next-generation AI-powered IDE',
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  )
-}`,
-  '/AICodeStudio/src/components/Editor.tsx': `'use client'
-
-import { useRef, useState } from 'react'
-
-export function Editor() {
-  const [content, setContent] = useState('')
-  
-  return (
-    <div className="flex-1 bg-[#0d1117] text-white p-4">
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="w-full h-full bg-transparent outline-none font-mono"
-      />
-    </div>
-  )
-}`,
-  '/AICodeStudio/src/components/Sidebar.tsx': `'use client'
-
-export function Sidebar() {
-  return (
-    <aside className="w-64 bg-[#0d1117] border-r border-[#00e5ff]/20">
-      <div className="p-4 text-[#00e5ff] font-mono text-sm">
-        EXPLORER
-      </div>
-    </aside>
-  )
-}`,
-  '/AICodeStudio/src/components/Terminal.tsx': `'use client'
-
-import { useEffect, useRef } from 'react'
-
-export function Terminal() {
-  const termRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    // Terminal initialization
-    console.log('Terminal mounted')
-  }, [])
-
-  return (
-    <div ref={termRef} className="h-full bg-[#0d1117] text-green-400 font-mono p-2" />
-  )
-}`,
-  '/AICodeStudio/src/lib/utils.ts': `import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}`,
-  '/AICodeStudio/src/lib/ai-providers.ts': `export interface AIProvider {
-  id: string
-  name: string
-  endpoint: string
-  models: string[]
-}
-
-export const OPENCLAW: AIProvider = {
-  id: 'openclaw',
-  name: 'OpenClaw',
-  endpoint: 'https://api.openclaw.dev/v1',
-  models: ['openclaw-4', 'openclaw-3.5-turbo'],
-}
-
-export const HERMES: AIProvider = {
-  id: 'hermes',
-  name: 'Hermes',
-  endpoint: 'https://api.hermes.ai/v1',
-  models: ['hermes-pro', 'hermes-fast'],
-}
-
-export async function queryAI(
-  provider: AIProvider,
-  prompt: string,
-  model: string
-): Promise<string> {
-  const response = await fetch(\`\${provider.endpoint}/chat/completions\`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  const data = await response.json()
-  return data.choices[0].message.content
-}`,
-  '/AICodeStudio/package.json': `{
-  "name": "aicodestudio",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "^16.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  }
-}`,
-  '/AICodeStudio/tsconfig.json': `{
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
-}`,
-  '/AICodeStudio/README.md': `# AICodeStudio
-
-Next-generation AI-powered IDE with OpenClaw and Hermes integration.
-
-## Features
-
-- Monaco Editor (VSCode core)
-- AI-powered code assistance
-- GitHub integration
-- Integrated terminal
-- Extensible plugin system
-`,
-  '/AICodeStudio/.gitignore': `node_modules/
-.next/
-.env
-.env.local
-*.log
-dist/
-build/
-.DS_Store`,
-  '/AICodeStudio/src/app/globals.css': `@import "tailwindcss";
-
-:root {
-  --bg-primary: #0d1117;
-  --accent: #00e5ff;
-  --text: #e6edf3;
-}
-
-body {
-  background: var(--bg-primary);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-}`,
-  '/AICodeStudio/public/logo.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="12" fill="#0d1117"/>
-  <text x="50" y="60" text-anchor="middle" fill="#00e5ff" font-size="40" font-family="monospace">&lt;/&gt;</text>
-</svg>`,
+  '/AICodeStudio/src/app/page.tsx': `import { Editor } from '@/components/Editor'\nimport { Sidebar } from '@/components/Sidebar'\n\nexport default function Home() {\n  return (\n    <main className="flex h-screen">\n      <Sidebar />\n      <Editor />\n    </main>\n  )\n}`,
+  '/AICodeStudio/src/app/layout.tsx': `import type { Metadata } from 'next'\nimport './globals.css'\n\nexport const metadata: Metadata = {\n  title: 'AICodeStudio',\n  description: 'Next-generation AI-powered IDE',\n}\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  )\n}`,
+  '/AICodeStudio/src/components/Editor.tsx': `'use client'\n\nimport { useState } from 'react'\n\nexport function Editor() {\n  const [content, setContent] = useState('')\n  return (\n    <div className="flex-1 bg-[#0d1117] text-white p-4">\n      <textarea\n        value={content}\n        onChange={(e) => setContent(e.target.value)}\n        className="w-full h-full bg-transparent outline-none font-mono"\n      />\n    </div>\n  )\n}`,
+  '/AICodeStudio/src/components/Sidebar.tsx': `'use client'\n\nexport function Sidebar() {\n  return (\n    <aside className="w-64 bg-[#0d1117] border-r border-[#00e5ff]/20">\n      <div className="p-4 text-[#00e5ff] font-mono text-sm">EXPLORER</div>\n    </aside>\n  )\n}`,
+  '/AICodeStudio/src/components/Terminal.tsx': `'use client'\n\nimport { useEffect, useRef } from 'react'\n\nexport function Terminal() {\n  const termRef = useRef<HTMLDivElement>(null)\n  useEffect(() => { console.log('Terminal mounted') }, [])\n  return <div ref={termRef} className="h-full bg-[#0d1117] text-green-400 font-mono p-2" />\n}`,
+  '/AICodeStudio/src/lib/utils.ts': `import { type ClassValue, clsx } from 'clsx'\nimport { twMerge } from 'tailwind-merge'\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs))\n}`,
+  '/AICodeStudio/src/lib/ai-providers.ts': `export interface AIProvider {\n  id: string\n  name: string\n  endpoint: string\n  models: string[]\n}\n\nexport const OPENCLAW: AIProvider = {\n  id: 'openclaw', name: 'OpenClaw',\n  endpoint: 'https://api.openclaw.dev/v1',\n  models: ['openclaw-4', 'openclaw-3.5-turbo'],\n}\n\nexport const HERMES: AIProvider = {\n  id: 'hermes', name: 'Hermes',\n  endpoint: 'https://api.hermes.ai/v1',\n  models: ['hermes-pro', 'hermes-fast'],\n}`,
+  '/AICodeStudio/package.json': `{\n  "name": "aicodestudio",\n  "version": "1.0.0",\n  "private": true,\n  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },\n  "dependencies": { "next": "^16.0.0", "react": "^19.0.0", "react-dom": "^19.0.0" }\n}`,
+  '/AICodeStudio/tsconfig.json': `{\n  "compilerOptions": {\n    "target": "ES2017", "lib": ["dom", "dom.iterable", "esnext"],\n    "allowJs": true, "skipLibCheck": true, "strict": true,\n    "noEmit": true, "esModuleInterop": true, "module": "esnext",\n    "moduleResolution": "bundler", "resolveJsonModule": true,\n    "isolatedModules": true, "jsx": "preserve", "incremental": true,\n    "paths": { "@/*": ["./src/*"] }\n  },\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],\n  "exclude": ["node_modules"]\n}`,
+  '/AICodeStudio/README.md': `# AICodeStudio\n\nNext-generation AI-powered IDE with OpenClaw and Hermes integration.\n\n## Features\n\n- Monaco Editor (VSCode core)\n- AI-powered code assistance\n- GitHub integration\n- Integrated terminal\n- Extensible plugin system\n`,
+  '/AICodeStudio/.gitignore': `node_modules/\n.next/\n.env\n.env.local\n*.log\ndist/\nbuild/\n.DS_Store`,
+  '/AICodeStudio/src/app/globals.css': `@import "tailwindcss";\n\n:root { --bg-primary: #0d1117; --accent: #00e5ff; --text: #e6edf3; }\nbody { background: var(--bg-primary); color: var(--text); font-family: 'JetBrains Mono', monospace; }`,
+  '/AICodeStudio/public/logo.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n  <rect width="100" height="100" rx="12" fill="#0d1117"/>\n  <text x="50" y="60" text-anchor="middle" fill="#00e5ff" font-size="40" font-family="monospace">&lt;/&gt;</text>\n</svg>`,
 }
 
 export const useIDEStore = create<IDEState>((set, get) => ({
@@ -411,6 +252,14 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     '$ AICodeStudio v1.0.0 — Ready',
     '$ Type "help" for available commands',
     '',
+  ],
+
+  // TODOs
+  todos: [
+    { id: 'todo-1', text: 'Configure OpenClaw API key', completed: false, priority: 'high', createdAt: Date.now() - 86400000, source: 'agent' },
+    { id: 'todo-2', text: 'Set up project file structure', completed: true, priority: 'high', createdAt: Date.now() - 172800000, source: 'agent' },
+    { id: 'todo-3', text: 'Connect Hermes provider', completed: false, priority: 'medium', createdAt: Date.now() - 43200000, source: 'user' },
+    { id: 'todo-4', text: 'Review code architecture', completed: false, priority: 'low', createdAt: Date.now() - 21600000, source: 'agent' },
   ],
 
   // Actions
@@ -497,4 +346,37 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   setTheme: (theme) => set({ theme }),
 
   addTerminalHistory: (entry) => set((state) => ({ terminalHistory: [...state.terminalHistory, entry] })),
+
+  // TODO actions
+  addTodo: (text, priority = 'medium', source = 'user') =>
+    set((state) => ({
+      todos: [...state.todos, {
+        id: `todo-${Date.now()}`,
+        text,
+        completed: false,
+        priority,
+        createdAt: Date.now(),
+        source,
+      }],
+    })),
+
+  toggleTodo: (id) =>
+    set((state) => ({
+      todos: state.todos.map((t) => t.id === id ? { ...t, completed: !t.completed } : t),
+    })),
+
+  removeTodo: (id) =>
+    set((state) => ({
+      todos: state.todos.filter((t) => t.id !== id),
+    })),
+
+  updateTodo: (id, updates) =>
+    set((state) => ({
+      todos: state.todos.map((t) => t.id === id ? { ...t, ...updates } : t),
+    })),
+
+  clearCompletedTodos: () =>
+    set((state) => ({
+      todos: state.todos.filter((t) => !t.completed),
+    })),
 }))

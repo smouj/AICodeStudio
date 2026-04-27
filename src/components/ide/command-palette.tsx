@@ -69,11 +69,11 @@ export function CommandPalette() {
   return (
     <div className="fixed inset-0 z-50 flex justify-center pt-[15%]" onClick={() => setCommandPaletteOpen(false)}>
       <div
-        className="w-[520px] max-h-[360px] bg-[#0d1117] border border-[#00e5ff]/20 rounded-lg shadow-2xl shadow-black/50 overflow-hidden"
+        className="w-[520px] max-h-[360px] bg-[#161b22] border border-white/[0.08] rounded-lg shadow-2xl shadow-black/50 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#00e5ff]/10">
-          <Search size={14} className="text-[#5a6270] shrink-0" />
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+          <Search size={14} className="text-[#484f58] shrink-0" />
           <input
             ref={inputRef}
             value={query}
@@ -113,7 +113,7 @@ export function CommandPalette() {
                   key={cmd.id}
                   className={`
                     flex items-center justify-between px-4 py-2 cursor-pointer transition-colors
-                    ${i === activeIndex ? 'bg-[#00e5ff]/10 text-[#e6edf3]' : 'text-[#8b949e]'}
+                    ${i === activeIndex ? 'bg-white/[0.06] text-[#e6edf3]' : 'text-[#8b949e]'}
                   `}
                   onClick={() => {
                     cmd.action()
@@ -122,7 +122,7 @@ export function CommandPalette() {
                   onMouseEnter={() => setHoveredIndex(i)}
                 >
                   <div className="flex items-center gap-2">
-                    <Icon size={14} className={i === activeIndex ? 'text-[#00e5ff]' : 'text-[#5a6270]'} />
+                    <Icon size={14} className={i === activeIndex ? 'text-white' : 'text-[#484f58]'} />
                     <span className="text-[12px] font-mono">{cmd.label}</span>
                     <span className="text-[10px] text-[#3d4450]">{cmd.category}</span>
                   </div>

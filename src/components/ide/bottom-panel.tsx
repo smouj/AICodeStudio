@@ -18,11 +18,11 @@ export function BottomPanel() {
 
   return (
     <div
-      className="bg-[#0d1117] border-t border-[#00e5ff]/10 flex flex-col shrink-0"
+      className="bg-[#0d1117] border-t border-white/[0.06] flex flex-col shrink-0"
       style={{ height: bottomPanelHeight }}
     >
       {/* Panel Tabs */}
-      <div className="flex items-center gap-0 bg-[#080c12] border-b border-[#00e5ff]/10 shrink-0">
+      <div className="flex items-center gap-0 bg-[#060a10] border-b border-white/[0.06] shrink-0">
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (
@@ -33,8 +33,8 @@ export function BottomPanel() {
                 flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono transition-colors cursor-pointer
                 border-b-[2px]
                 ${activeBottomPanel === tab.id
-                  ? 'text-[#e6edf3] border-b-[#00e5ff]'
-                  : 'text-[#5a6270] border-b-transparent hover:text-[#8b949e]'
+                  ? 'text-[#e6edf3] border-b-white'
+                  : 'text-[#484f58] border-b-transparent hover:text-[#8b949e]'
                 }
               `}
             >
@@ -49,7 +49,7 @@ export function BottomPanel() {
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeBottomPanel === 'terminal' && <TerminalPanel />}
         {activeBottomPanel === 'output' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#5a6270]">
+          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
             <div>[AICodeStudio] Output channel ready</div>
             <div>[AICodeStudio] Extensions loaded: 2</div>
             <div>[AICodeStudio] AI providers initialized</div>
@@ -57,12 +57,12 @@ export function BottomPanel() {
           </div>
         )}
         {activeBottomPanel === 'problems' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#5a6270]">
+          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
             <div className="text-[#3fb950]">✓ No problems detected in workspace</div>
           </div>
         )}
         {activeBottomPanel === 'debug' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#5a6270]">
+          <div className="h-full p-3 font-mono text-[12px] text-[#484f58]">
             <div>No active debug session</div>
             <div className="mt-2 text-[11px] text-[#3d4450]">Press F5 to start debugging</div>
           </div>
