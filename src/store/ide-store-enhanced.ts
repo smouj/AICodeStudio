@@ -1,7 +1,5 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { v4 as uuidv4 } from 'uuid'
-
 // ─── Existing Types (from original store) ───────────────────
 
 export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos' | 'docker' | 'database' | 'collaboration' | 'lsp' | 'voice' | 'themes' | 'canvas'
@@ -310,44 +308,16 @@ function sortFileNodes(nodes: FileNode[]): FileNode[] {
   })
 }
 
-// Helper: generate unique IDs
+// Helper: generate unique IDs (browser-native, no external deps)
+let _idCounter = 0
 function generateId(prefix: string = 'id'): string {
-  return `${prefix}-${uuidv4().slice(0, 8)}`
+  _idCounter++
+  const random = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().slice(0, 8)
+    : `${Date.now().toString(36)}${_idCounter}`
+  return `${prefix}-${random}`
 }
 
-// ─── Custom IndexedDB Storage for Zustand Persist ───────────
-
-const IDB_STORE_KEY = 'aicodestudio-persist'
-
-const idbStorage: Storage = {
-  getItem: (name: string): string | null => {
-    // Synchronous interface — we'll use localStorage as a sync fallback
-    // and let IDB be async. For persist middleware compatibility we use
-    // a hybrid approach.
-    try {
-      return localStorage.getItem(`${IDB_STORE_KEY}:${name}`)
-    } catch {
-      return null
-    }
-  },
-  setItem: (name: string, value: string): void => {
-    try {
-      localStorage.setItem(`${IDB_STORE_KEY}:${name}`, value)
-    } catch {
-      console.warn('[Storage] Failed to set item:', name)
-    }
-  },
-  removeItem: (name: string): void => {
-    try {
-      localStorage.removeItem(`${IDB_STORE_KEY}:${name}`)
-    } catch {
-      console.warn('[Storage] Failed to remove item:', name)
-    }
-  },
-  get length() { return 0 },
-  key(_: number): string | null { return null },
-  clear(): void {},
-}
 
 // ─── Tree manipulation helpers ──────────────────────────────
 

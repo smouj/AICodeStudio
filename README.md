@@ -162,12 +162,20 @@
 
 <table>
   <tr>
-    <td align="center"><b>Welcome Screen</b></td>
-    <td align="center"><b>Code Editor</b></td>
+    <td align="center"><b>Full IDE</b></td>
+    <td align="center"><b>File Explorer</b></td>
   </tr>
   <tr>
-    <td><img src="public/welcome.png" alt="Welcome" width="100%" /></td>
-    <td><img src="public/editor.png" alt="Editor" width="100%" /></td>
+    <td><img src="public/full-ide.png" alt="Full IDE" width="100%" /></td>
+    <td><img src="public/explorer.png" alt="Explorer" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Search in Files</b></td>
+    <td align="center"><b>Source Control</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/search.png" alt="Search" width="100%" /></td>
+    <td><img src="public/git.png" alt="Git" width="100%" /></td>
   </tr>
   <tr>
     <td align="center"><b>AI Assistant</b></td>
@@ -176,6 +184,14 @@
   <tr>
     <td><img src="public/ai-chat.png" alt="AI Chat" width="100%" /></td>
     <td><img src="public/todos.png" alt="TODOs" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>GitHub Integration</b></td>
+    <td align="center"><b>Extensions</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/github.png" alt="GitHub" width="100%" /></td>
+    <td><img src="public/extensions.png" alt="Extensions" width="100%" /></td>
   </tr>
   <tr>
     <td align="center"><b>Docker Management</b></td>
@@ -187,42 +203,26 @@
   </tr>
   <tr>
     <td align="center"><b>Collaboration</b></td>
-    <td align="center"><b>Git Operations</b></td>
+    <td align="center"><b>Language Servers</b></td>
   </tr>
   <tr>
     <td><img src="public/collaboration.png" alt="Collaboration" width="100%" /></td>
-    <td><img src="public/git.png" alt="Git Operations" width="100%" /></td>
+    <td><img src="public/language-servers.png" alt="LSP" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><b>Extension Marketplace</b></td>
+    <td align="center"><b>Voice-to-Code</b></td>
     <td align="center"><b>Themes Marketplace</b></td>
   </tr>
   <tr>
-    <td><img src="public/extensions.png" alt="Extensions" width="100%" /></td>
+    <td><img src="public/voice-to-code.png" alt="Voice" width="100%" /></td>
     <td><img src="public/themes.png" alt="Themes" width="100%" /></td>
   </tr>
   <tr>
     <td align="center"><b>Canvas Navigation</b></td>
-    <td align="center"><b>Voice-to-Code</b></td>
-  </tr>
-  <tr>
-    <td><img src="public/canvas-navigation.png" alt="Canvas" width="100%" /></td>
-    <td><img src="public/voice-to-code.png" alt="Voice" width="100%" /></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Language Servers</b></td>
-    <td align="center"><b>Terminal</b></td>
-  </tr>
-  <tr>
-    <td><img src="public/language-servers.png" alt="LSP" width="100%" /></td>
-    <td><img src="public/terminal.png" alt="Terminal" width="100%" /></td>
-  </tr>
-  <tr>
-    <td align="center"><b>GitHub Integration</b></td>
     <td align="center"><b>Command Palette</b></td>
   </tr>
   <tr>
-    <td><img src="public/github.png" alt="GitHub" width="100%" /></td>
+    <td><img src="public/canvas-navigation.png" alt="Canvas" width="100%" /></td>
     <td><img src="public/command-palette.png" alt="Command Palette" width="100%" /></td>
   </tr>
 </table>
@@ -318,7 +318,8 @@ src/
 │   │   └── voice-panel.tsx          # Voice-to-code integration
 │   └── ui/                           # shadcn/ui component library
 ├── store/
-│   └── ide-store.ts                  # Zustand global state with virtual FS
+│   ├── ide-store.ts                  # Re-exports from enhanced store
+│   └── ide-store-enhanced.ts         # Zustand global state with virtual FS
 └── lib/
     └── utils.ts                      # Utility functions
 ```
