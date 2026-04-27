@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     title: "AICodeStudio — AI-Powered IDE",
     description: "Next-generation open-source AI-powered IDE. Install as a desktop app. Code smarter with AI.",
     type: "website",
-    url: "https://aicodestudio.github.io/aicodestudio",
+    url: "https://smouj.github.io/AICodeStudio",
     images: [{ url: "/social-banner.svg", width: 1280, height: 640, alt: "AICodeStudio Banner" }],
     siteName: "AICodeStudio",
   },

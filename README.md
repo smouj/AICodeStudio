@@ -15,7 +15,7 @@
 
 *A free, open-source, AI-first code editor that runs in your browser. Install it as a desktop app like VSCode — no Electron required.*
 
-[🌐 Live Demo](https://aicodestudio.github.io/aicodestudio) · [📥 Install](#-installation) · [✨ Features](#-features) · [🚀 Quick Start](#-quick-start) · [🤝 Contributing](#-contributing)
+[🌐 Live Demo](https://smouj.github.io/AICodeStudio) · [📥 Install](#-installation) · [✨ Features](#-features) · [🚀 Quick Start](#-quick-start) · [🤝 Contributing](#-contributing)
 
 </div>
 
@@ -106,7 +106,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/AICodeStudio/aicodestudio.git
+git clone https://github.com/smouj/AICodeStudio.git
 cd aicodestudio
 
 # Install dependencies

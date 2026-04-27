@@ -7,10 +7,10 @@
   "author": "AICodeStudio Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AICodeStudio/aicodestudio"
+    "url": "https://github.com/smouj/AICodeStudio"
   },
   "keywords": ["ide", "ai", "code-editor", "monaco", "vscode", "pwa", "openclaw", "hermes", "github", "typescript", "nextjs"],
-  "homepage": "https://aicodestudio.github.io/aicodestudio",
+  "homepage": "https://smouj.github.io/AICodeStudio",
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
