@@ -3,12 +3,19 @@
 import { useIDEStore } from '@/store/ide-store'
 import { FileExplorer } from './file-tree'
 import { SearchPanel } from './search-panel'
-import { GitPanel } from './git-panel'
+import { GitOperations } from './git-operations'
 import { AIChatPanel } from './ai-chat'
 import { GitHubPanel } from './github-panel'
-import { ExtensionsPanel } from './extensions-panel'
+import { ExtensionsMarketplace } from './extensions-marketplace'
 import { TodosPanel } from './todos-panel'
 import { SettingsPanel } from './settings-panel'
+import { DockerPanel } from './docker-panel'
+import { DatabasePanel } from './database-panel'
+import { CollaborationPanel } from './collaboration-panel'
+import { LSPPanel } from './lsp-panel'
+import { VoicePanel } from './voice-panel'
+import { ThemesPanel } from './themes-panel'
+import { CanvasNavigation } from './canvas-navigation'
 
 export function SidebarPanel() {
   const { activeSidebarPanel, sidebarVisible, sidebarWidth } = useIDEStore()
@@ -22,12 +29,19 @@ export function SidebarPanel() {
     >
       {activeSidebarPanel === 'explorer' && <FileExplorer />}
       {activeSidebarPanel === 'search' && <SearchPanel />}
-      {activeSidebarPanel === 'git' && <GitPanel />}
+      {activeSidebarPanel === 'git' && <GitOperations />}
       {activeSidebarPanel === 'todos' && <TodosPanel />}
       {activeSidebarPanel === 'ai' && <AIChatPanel />}
       {activeSidebarPanel === 'github' && <GitHubPanel />}
-      {activeSidebarPanel === 'extensions' && <ExtensionsPanel />}
+      {activeSidebarPanel === 'extensions' && <ExtensionsMarketplace />}
       {activeSidebarPanel === 'settings' && <SettingsPanel />}
+      {activeSidebarPanel === 'docker' && <DockerPanel />}
+      {activeSidebarPanel === 'database' && <DatabasePanel />}
+      {activeSidebarPanel === 'collaboration' && <CollaborationPanel />}
+      {activeSidebarPanel === 'lsp' && <LSPPanel />}
+      {activeSidebarPanel === 'voice' && <VoicePanel />}
+      {activeSidebarPanel === 'themes' && <ThemesPanel />}
+      {activeSidebarPanel === 'canvas' && <CanvasNavigation />}
     </div>
   )
 }

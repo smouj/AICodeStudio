@@ -22,14 +22,32 @@ export async function POST(req: NextRequest) {
 - Bug detection and fixes
 - Architecture suggestions
 - Best practices and patterns
-Always respond with clear, actionable advice. Use markdown formatting with code blocks when showing code.${provider ? ` Provider context: ${provider}.` : ''}`;
+- Writing new code from descriptions
+- Converting code between languages
+- Generating tests and documentation
+Always respond with clear, actionable advice. Use markdown formatting with code blocks when showing code. Be concise but thorough.${provider ? ` Provider context: ${provider}.` : ''}`;
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message },
-      ],
-    });
+    // Build messages array with system prompt
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: message },
+    ];
+
+    // Create completion options
+    const completionOptions: Record<string, unknown> = {
+      messages,
+    };
+
+    // If user provided an API key and custom endpoint, include them
+    // The z-ai-web-dev-sdk handles the actual routing
+    if (apiKey) {
+      completionOptions.apiKey = apiKey;
+    }
+    if (endpoint) {
+      completionOptions.endpoint = endpoint;
+    }
+
+    const completion = await zai.chat.completions.create(completionOptions as Parameters<typeof zai.chat.completions.create>[0]);
 
     const content = completion.choices?.[0]?.message?.content;
     if (content) {
@@ -41,9 +59,9 @@ Always respond with clear, actionable advice. Use markdown formatting with code 
       { status: 500 }
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: `AI request failed: ${message}` },
+      { error: `AI request failed: ${errorMessage}` },
       { status: 500 }
     );
   }
