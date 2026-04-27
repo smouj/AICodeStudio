@@ -11,14 +11,20 @@ out/
 build/
 dist/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
 # Misc
 .DS_Store
 *.pem
+
+# Environment
 .env
 .env*.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+.env.production
+.env.development
 
 # IDE
 .vscode/
@@ -34,6 +40,9 @@ prisma/migrations/
 *.log
 dev.log
 server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # PWA
 public/sw.js.map

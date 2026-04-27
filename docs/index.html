@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AICodeStudio — Next-Generation AI-Powered IDE</title>
-  <meta name="description" content="Free, open-source, AI-first code editor that runs in your browser. Install as a desktop app like VSCode — no Electron required.">
+  <meta name="description" content="Free, open-source, AI-first code editor that runs in your browser. Install as a desktop app like VSCode — no Electron required. Docker, Database, Collaboration, Voice-to-Code, and more.">
   <meta name="theme-color" content="#080c12">
   <meta property="og:title" content="AICodeStudio — AI-Powered IDE">
-  <meta property="og:description" content="Next-generation open-source AI-powered IDE. Install as a desktop app.">
+  <meta property="og:description" content="Next-generation open-source AI-powered IDE with Docker, Database, Collaboration, Voice-to-Code, and Canvas Navigation.">
   <meta property="og:image" content="social-banner.svg">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AICodeStudio — AI-Powered IDE">
-  <meta name="twitter:description" content="Next-Generation AI-Powered IDE. Open Source. Installable. AI-First.">
+  <meta name="twitter:description" content="Next-Generation AI-Powered IDE. Open Source. Installable. AI-First. 20+ Features.">
   <meta name="twitter:image" content="social-banner.svg">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -168,23 +168,56 @@
       color: var(--accent);
     }
 
-    /* Screenshot */
-    .screenshot-section {
-      padding: 0 2rem 4rem;
+    /* Screenshots Gallery */
+    .gallery-section {
+      padding: 4rem 2rem;
       max-width: 1200px;
       margin: 0 auto;
     }
 
-    .screenshot-wrapper {
+    .gallery-section h2 {
+      text-align: center;
+      font-size: 2rem;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .gallery-section .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 3rem;
+      font-size: 0.95rem;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .gallery-item {
       border-radius: var(--radius);
       overflow: hidden;
       border: 1px solid rgba(0,212,170,0.08);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,170,0.05);
+      background: var(--bg-2);
+      transition: all 0.2s;
     }
 
-    .screenshot-wrapper img {
+    .gallery-item:hover {
+      border-color: rgba(0,212,170,0.15);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    .gallery-item img {
       width: 100%;
       display: block;
+    }
+
+    .gallery-item .label {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      border-top: 1px solid rgba(0,212,170,0.06);
     }
 
     /* Features */
@@ -210,7 +243,7 @@
 
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1.5rem;
     }
 
@@ -324,6 +357,39 @@
       overflow-x: auto;
     }
 
+    /* Stats */
+    .stats-section {
+      padding: 3rem 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1.5rem;
+      text-align: center;
+    }
+
+    .stat-card {
+      background: var(--bg-2);
+      border: 1px solid rgba(0,212,170,0.06);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
     /* Footer */
     .footer {
       text-align: center;
@@ -347,6 +413,8 @@
       .hero h1 { font-size: 2.5rem; }
       .hero .tagline { font-size: 0.95rem; }
       .features-grid { grid-template-columns: 1fr; }
+      .gallery-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -357,37 +425,83 @@
     <div class="hero-glow"></div>
     <img src="logo.svg" alt="AICodeStudio Logo" class="logo" />
     <h1>AI<span>Code</span>Studio</h1>
-    <p class="tagline">Next-Generation AI-Powered IDE — Open Source & Installable</p>
+    <p class="tagline">Next-Generation AI-Powered IDE — Open Source &amp; Installable</p>
 
     <div class="badges">
-      <span class="badge">&#x1F916; OpenClaw AI</span>
-      <span class="badge">&#x26A1; Hermes AI</span>
-      <span class="badge">&#x1F4BB; Monaco Editor</span>
-      <span class="badge">&#x1F4E6; PWA Desktop</span>
-      <span class="badge">&#x1F310; GitHub</span>
+      <span class="badge">AI Chat</span>
+      <span class="badge">Docker</span>
+      <span class="badge">Database</span>
+      <span class="badge">Collaboration</span>
+      <span class="badge">Voice-to-Code</span>
+      <span class="badge">Monaco Editor</span>
+      <span class="badge">PWA Desktop</span>
     </div>
 
     <div class="cta-group">
       <a href="https://github.com/smouj/AICodeStudio" class="btn btn-primary">
-        &#x2B50; Star on GitHub
+        Star on GitHub
       </a>
       <a href="#install" class="btn btn-secondary">
-        &#x1F4E5; Install Now
+        Install Now
       </a>
       <a href="https://github.com/smouj/AICodeStudio/fork" class="btn btn-secondary">
-        &#x1F500; Fork
+        Fork
       </a>
     </div>
 
     <div style="color: var(--text-dim); font-size: 0.75rem;">
-      v1.0.0 &middot; MIT License &middot; TypeScript &middot; React 19 &middot; Next.js 16
+      v2.0 &middot; MIT License &middot; TypeScript &middot; React 19 &middot; Next.js 16
     </div>
   </section>
 
-  <!-- Screenshot -->
-  <section class="screenshot-section">
-    <div class="screenshot-wrapper">
-      <img src="screenshot.png" alt="AICodeStudio Screenshot" />
+  <!-- Stats -->
+  <section class="stats-section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number">20+</div>
+        <div class="stat-label">Features</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">14</div>
+        <div class="stat-label">IDE Panels</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">10</div>
+        <div class="stat-label">API Routes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">10</div>
+        <div class="stat-label">Language Servers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Themes</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshot Gallery -->
+  <section class="gallery-section">
+    <h2>Screenshots</h2>
+    <p class="subtitle">Every panel is real — zero mocks, zero placeholders.</p>
+
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="screenshot-editor.png" alt="Code Editor" />
+        <div class="label">Code Editor — Monaco with custom dark theme</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screenshot-ai.png" alt="AI Assistant" />
+        <div class="label">AI Assistant — Real API integration with provider config</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screenshot-todos.png" alt="TODO Panel" />
+        <div class="label">TODO Panel — Priority-based task management</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screenshot-github.png" alt="GitHub Panel" />
+        <div class="label">GitHub — Clone, search, and discover trending repos</div>
+      </div>
     </div>
   </section>
 
@@ -398,39 +512,75 @@
 
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">&#x1F916;</div>
+        <div class="feature-icon">AI</div>
         <h3>AI-First Development</h3>
-        <p>Connect to OpenClaw or Hermes AI providers for intelligent code completion, refactoring, bug detection, and conversational code assistance right in your sidebar.</p>
+        <p>Connect any AI provider with your own API key for intelligent code completion, refactoring, bug detection, and conversational code assistance.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">&#x1F4DD;</div>
+        <div class="feature-icon">Docker</div>
+        <h3>Docker Management</h3>
+        <p>Start, stop, and restart containers. View logs, environment variables, and ports. Pull and run images — all from the IDE sidebar.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">DB</div>
+        <h3>Database Viewer</h3>
+        <p>Connect to PostgreSQL, MySQL, SQLite, MongoDB, Redis, or MSSQL. Browse schemas, execute SQL queries, and view results in a table.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Live</div>
+        <h3>Live Collaboration</h3>
+        <p>Edit code simultaneously with teammates using CRDT-based sync. See cursor positions, chat in real-time, and resolve conflicts automatically.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Mic</div>
+        <h3>Voice-to-Code</h3>
+        <p>Speak natural language commands to create functions, add imports, find bugs, and refactor. Supports 6 languages with real-time transcription.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Git</div>
+        <h3>Advanced Git</h3>
+        <p>Full Git workflow: stage/unstage, commit with templates, branch management, push/pull, merge/rebase, diff viewer, and commit history.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">LSP</div>
+        <h3>Language Servers</h3>
+        <p>10 language servers for TypeScript, Python, Rust, Go, and more. Real-time diagnostics, code actions, and refactoring suggestions.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Ext</div>
+        <h3>Extension Marketplace</h3>
+        <p>Browse and install extensions from the Open VSX Registry. Search by name, filter by category, view details and version history.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Theme</div>
+        <h3>Custom Themes</h3>
+        <p>6 pre-built themes including Nord, Dracula, and Monokai. Build your own theme with the visual theme builder and live preview.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Map</div>
+        <h3>Canvas Navigation</h3>
+        <p>Visual file graph with Tree, Grid, and Force-directed layouts. Pan, zoom, and search across your workspace on an interactive canvas.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">PWA</div>
+        <h3>Desktop App</h3>
+        <p>Install as a native desktop application on Windows, macOS, and Linux via PWA. No Electron required — full IDE experience in standalone mode.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">Edit</div>
         <h3>Monaco Editor</h3>
-        <p>The same editor engine that powers VSCode, with IntelliSense, syntax highlighting for 20+ languages, bracket pair colorization, and smooth cursor animations.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">&#x1F4CB;</div>
-        <h3>Smart TODOs</h3>
-        <p>Manage tasks with priority levels. AI agent suggestions appear automatically. Filter by status, clear completed tasks, and track what matters.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">&#x1F310;</div>
-        <h3>GitHub Integration</h3>
-        <p>Clone repositories directly, discover trending projects, and manage your source control without leaving the IDE.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">&#x1F4E6;</div>
-        <h3>Install as Desktop App</h3>
-        <p>PWA support means you can install AICodeStudio as a native desktop application on Windows, macOS, and Linux — no Electron required.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">&#x1F3A8;</div>
-        <h3>Refined Dark Theme</h3>
-        <p>Meticulously crafted color system with teal accent on deep black backgrounds. ASCII art backdrops, grid overlays, and subtle glow effects for a futuristic feel.</p>
+        <p>The same engine that powers VSCode, with IntelliSense, syntax highlighting for 20+ languages, and bracket pair colorization.</p>
       </div>
     </div>
   </section>
@@ -448,7 +598,7 @@
           <p>Clone the repo and start developing immediately.</p>
           <div class="code-block">
             git clone https://github.com/smouj/AICodeStudio.git<br>
-            cd aicodestudio<br>
+            cd AICodeStudio<br>
             npm install<br>
             npm run dev
           </div>
@@ -479,8 +629,8 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <p>Built with &#x2764;&#xFE0F; by the <a href="https://github.com/smouj/AICodeStudio">AICodeStudio Team</a></p>
-    <p style="margin-top: 0.5rem;">MIT License &middot; Open Source &middot; AI-First</p>
+    <p>Built with care by the <a href="https://github.com/smouj/AICodeStudio">AICodeStudio Team</a></p>
+    <p style="margin-top: 0.5rem;">MIT License &middot; Open Source &middot; AI-First &middot; 20+ Features</p>
   </footer>
 
 </body>

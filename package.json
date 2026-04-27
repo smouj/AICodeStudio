@@ -1,8 +1,8 @@
 {
   "name": "aicodestudio",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": false,
-  "description": "Next-generation open-source AI-powered IDE with OpenClaw & Hermes integration, Monaco Editor, GitHub connectivity, and PWA desktop installation support.",
+  "description": "Next-generation open-source AI-powered IDE with Docker management, Database viewer, Live Collaboration, Voice-to-Code, Language Server Protocol, Extension Marketplace, Custom Themes, Canvas Navigation, Monaco Editor, and PWA desktop installation.",
   "license": "MIT",
   "author": "AICodeStudio Team",
   "repository": {
@@ -20,7 +20,15 @@
     "hermes",
     "github",
     "typescript",
-    "nextjs"
+    "nextjs",
+    "docker",
+    "database",
+    "collaboration",
+    "voice-to-code",
+    "language-server",
+    "extensions",
+    "themes",
+    "canvas"
   ],
   "homepage": "https://smouj.github.io/AICodeStudio",
   "scripts": {
