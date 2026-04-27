@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useRef, Component } from 'react'
-import { X, Circle } from 'lucide-react'
+import { useCallback, Component } from 'react'
+import { X, Circle, Plus, FolderOpen } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
 import dynamic from 'next/dynamic'
 import type { editor } from 'monaco-editor'
@@ -51,19 +51,11 @@ const customThemeName = 'aicode-dark'
 function getLanguageFromFilename(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase()
   const map: Record<string, string> = {
-    tsx: 'typescript',
-    ts: 'typescript',
-    jsx: 'javascript',
-    js: 'javascript',
-    json: 'json',
-    css: 'css',
-    html: 'html',
-    md: 'markdown',
-    svg: 'xml',
-    py: 'python',
-    rs: 'rust',
-    go: 'go',
-    gitignore: 'plaintext',
+    tsx: 'typescript', ts: 'typescript', jsx: 'javascript', js: 'javascript',
+    json: 'json', css: 'css', html: 'html', md: 'markdown', svg: 'xml',
+    py: 'python', rs: 'rust', go: 'go', gitignore: 'plaintext',
+    yml: 'yaml', yaml: 'yaml', sh: 'shell', sql: 'sql', env: 'plaintext',
+    txt: 'plaintext', xml: 'xml', dockerfile: 'dockerfile',
   }
   return map[ext || ''] || 'plaintext'
 }
@@ -130,6 +122,8 @@ export function EditorArea() {
   const updateTabContent = useIDEStore((s) => s.updateTabContent)
   const setCursorPosition = useIDEStore((s) => s.setCursorPosition)
   const setActiveSidebarPanel = useIDEStore((s) => s.setActiveSidebarPanel)
+  const editorSettings = useIDEStore((s) => s.editorSettings)
+  const writeFile = useIDEStore((s) => s.writeFile)
 
   const activeTab = openTabs.find((t) => t.id === activeTabId)
 
@@ -137,9 +131,14 @@ export function EditorArea() {
     (value: string | undefined) => {
       if (activeTabId && value !== undefined) {
         updateTabContent(activeTabId, value)
+        // Auto-save to virtual FS
+        const tab = useIDEStore.getState().openTabs.find((t) => t.id === activeTabId)
+        if (tab) {
+          writeFile(tab.path, value)
+        }
       }
     },
-    [activeTabId, updateTabContent]
+    [activeTabId, updateTabContent, writeFile]
   )
 
   const handleBeforeMount = useCallback((monaco: typeof import('monaco-editor')) => {
@@ -157,18 +156,12 @@ export function EditorArea() {
       <div className="flex-1 bg-[#080c12] flex items-center justify-center relative overflow-hidden" role="main" aria-label="Welcome screen">
         {/* ASCII Art Background */}
         <div className="absolute inset-0 opacity-[0.03] font-mono text-[8px] leading-tight text-[#00d4aa] select-none overflow-hidden whitespace-pre p-4 ascii-bg" aria-hidden="true">
-{`████╗ ███████╗ ██████╗██╗  ██╗███████╗██████╗  ██████╗ ███╗   ██╗ █████╗ ██╗  ██╗   ██╗████████╗███████╗██████╗
-╚══██╗██╔════╝██╔════╝██║  ██║██╔════╝██╔══██╗██╔═══██╗████╗  ██║██╔══██╗██║  ╚██╗ ██╔╝╚══██╔══╝██╔════╝██╔══██╗
-  ██║█████╗  ██║     ███████║█████╗  ██████╔╝██║   ██║██╔██╗ ██║███████║██║   ╚████╔╝    ██║   █████╗  ██║  ██║
-  ██║██╔══╝  ██║     ██╔══██║██╔══╝  ██╔══██╗██║   ██║██║╚██╗██║██╔══██║██║    ╚██╔╝     ██║   ██╔══╝  ██║  ██║
-  ██║███████╗╚██████╗██║  ██║███████╗██║  ██║╚██████╔╝██║ ╚████║██║  ██║███████╗██║      ██║   ███████╗██████╔╝
-  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═╝   ╚══════╝╚═════╝
- █████╗ ██╗    ████████╗   ██╗  ██╗███████╗██╗   ██╗███████╗███╗   ██╗ ██████╗██████╗ ███████╗
-██╔══██╗██║    ╚══██╔══╝   ██║  ██║██╔════╝╚██╗ ██╔╝██╔════╝████╗  ██║██╔════╝██╔══██╗██╔════╝
-███████║██║       ██║█████╗███████║█████╗   ╚████╔╝ █████╗  ██╔██╗ ██║██║     ██████╔╝█████╗
-██╔══██║██║       ██║╚════╝██╔══██║██╔══╝    ╚██╔╝  ██╔══╝  ██║╚██╗██║██║     ██╔══██╗██╔══╝
-██║  ██║███████╗  ██║      ██║  ██║███████╗   ██║   ███████╗██║ ╚████║╚██████╗██║  ██║███████╗
-╚═╝  ╚═╝╚══════╝  ╚═╝      ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝╚══════╝`}
+{`\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2557   \u2588\u2588\u2557
+\u255A\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557
+  \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2557     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2557  \u255A\u2550\u2550\u2588\u2588\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
+  \u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u255D  \u2588\u2588\u2557     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u255A\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
+  \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2557\u2588\u2588\u2551 \u255A\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
+  \u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D   \u255A\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u2550\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D`}
         </div>
 
         {/* Decorative grid lines */}
@@ -186,7 +179,7 @@ export function EditorArea() {
           <p className="text-[#484f58] text-sm font-mono mb-8">Next-Generation AI-Powered IDE</p>
           <div className="flex flex-col gap-2.5 text-[12px] font-mono">
             {[
-              { label: 'Open File', shortcut: 'Ctrl+O', panel: 'explorer' as const },
+              { label: 'Create a File', shortcut: 'Terminal: touch', panel: 'explorer' as const },
               { label: 'Clone Repository', shortcut: 'Ctrl+Shift+G', panel: 'github' as const },
               { label: 'Connect AI Provider', shortcut: 'Ctrl+Shift+A', panel: 'ai' as const },
             ].map((action) => (
@@ -195,7 +188,7 @@ export function EditorArea() {
                 onClick={() => setActiveSidebarPanel(action.panel)}
                 className="group flex items-center gap-3 text-[#484f58] hover:text-[#00d4aa] transition-colors cursor-pointer mx-auto"
               >
-                <span className="text-[#00d4aa]/40 group-hover:text-[#00d4aa] transition-colors" aria-hidden="true">→</span>
+                <span className="text-[#00d4aa]/40 group-hover:text-[#00d4aa] transition-colors" aria-hidden="true">{'\u2192'}</span>
                 <span>{action.label}</span>
                 <span className="text-[#30363d] text-[10px]">{action.shortcut}</span>
               </button>
@@ -252,6 +245,20 @@ export function EditorArea() {
         ))}
       </div>
 
+      {/* Breadcrumb */}
+      {activeTab && (
+        <div className="flex items-center gap-1 px-3 py-1 bg-[#080c12] border-b border-[rgba(0,212,170,0.04)] text-[11px] font-mono text-[#30363d]">
+          {activeTab.path.split('/').filter(Boolean).map((segment, i, arr) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span className="text-[#30363d]/50">/</span>}
+              <span className={i === arr.length - 1 ? 'text-[#6e7681]' : 'text-[#30363d] hover:text-[#484f58] cursor-pointer'}>
+                {segment}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Editor */}
       <div className="flex-1 min-h-0">
         <EditorErrorBoundary>
@@ -265,18 +272,21 @@ export function EditorArea() {
               onMount={handleOnMount}
               theme={customThemeName}
               options={{
-                fontSize: 13,
+                fontSize: editorSettings.fontSize,
                 fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                fontLigatures: true,
-                lineHeight: 22,
-                minimap: { enabled: true, scale: 2, showSlider: 'mouseover' },
+                fontLigatures: editorSettings.fontLigatures,
+                lineHeight: Math.round(editorSettings.fontSize * 1.7),
+                tabSize: editorSettings.tabSize,
+                minimap: { enabled: editorSettings.minimap, scale: 2, showSlider: 'mouseover' },
+                wordWrap: editorSettings.wordWrap,
+                lineNumbers: editorSettings.lineNumbers,
                 scrollBeyondLastLine: false,
                 smoothScrolling: true,
                 cursorBlinking: 'smooth',
                 cursorSmoothCaretAnimation: 'on',
                 renderLineHighlight: 'line',
                 renderWhitespace: 'selection',
-                bracketPairColorization: { enabled: true },
+                bracketPairColorization: { enabled: editorSettings.bracketPairColorization },
                 guides: {
                   bracketPairs: true,
                   indentation: true,

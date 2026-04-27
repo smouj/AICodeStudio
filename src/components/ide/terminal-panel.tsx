@@ -13,6 +13,8 @@ export const TerminalPanel = memo(function TerminalPanel() {
   const [input, setInput] = useState('')
   const terminalRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const commandHistoryRef = useRef<string[]>([])
+  const historyIndexRef = useRef(-1)
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -26,84 +28,300 @@ export const TerminalPanel = memo(function TerminalPanel() {
     }
   }, [bottomPanelVisible])
 
+  // Helper: list files in a directory from the virtual FS
+  const listDirectory = useCallback((dirPath: string): string[] => {
+    const state = useIDEStore.getState()
+    const results: string[] = []
+
+    // Find directory node in tree
+    const findChildren = (nodes: typeof state.fileTree, target: string): typeof state.fileTree | null => {
+      for (const node of nodes) {
+        if (node.path === target && node.type === 'folder') return node.children || []
+        if (node.children) {
+          const found = findChildren(node.children, target)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const children = findChildren(state.fileTree, dirPath)
+    if (children) {
+      children.forEach((c) => {
+        results.push(c.type === 'folder' ? `${c.name}/` : c.name)
+      })
+    }
+
+    // Also check fileContents for direct paths
+    Object.keys(state.fileContents).forEach((path) => {
+      const parent = path.substring(0, path.lastIndexOf('/'))
+      if (parent === dirPath) {
+        const name = path.split('/').pop() || ''
+        if (!results.includes(name) && !results.includes(`${name}/`)) {
+          results.push(name)
+        }
+      }
+    })
+
+    return results
+  }, [])
+
   const processCommand = useCallback((cmd: string) => {
-    const trimmed = cmd.trim().toLowerCase()
+    const trimmed = cmd.trim()
+    const lower = trimmed.toLowerCase()
+    const state = useIDEStore.getState()
+    const cwd = state.terminalCwd
+
     addTerminalHistory(`$ ${cmd}`)
 
-    if (trimmed === 'help') {
+    if (lower === 'help') {
       addTerminalHistory('Available commands:')
-      addTerminalHistory('  help       Show this help message')
-      addTerminalHistory('  clear      Clear terminal')
-      addTerminalHistory('  ls         List files')
-      addTerminalHistory('  pwd        Print working directory')
-      addTerminalHistory('  date       Show current date')
-      addTerminalHistory('  echo       Echo text')
-      addTerminalHistory('  ai         Show AI provider status')
-      addTerminalHistory('  git        Show git status')
-      addTerminalHistory('  todo       Show TODO summary')
-      addTerminalHistory('  version    Show AICodeStudio version')
-      addTerminalHistory('  whoami     Show current user')
-      addTerminalHistory('  neofetch   System information')
-    } else if (trimmed === 'clear') {
+      addTerminalHistory('  help              Show this help message')
+      addTerminalHistory('  clear             Clear terminal')
+      addTerminalHistory('  ls [path]         List files in directory')
+      addTerminalHistory('  cd <path>         Change directory')
+      addTerminalHistory('  pwd               Print working directory')
+      addTerminalHistory('  cat <file>        Display file contents')
+      addTerminalHistory('  touch <file>      Create an empty file')
+      addTerminalHistory('  mkdir <dir>       Create a directory')
+      addTerminalHistory('  rm <path>         Remove a file or directory')
+      addTerminalHistory('  mv <old> <new>    Rename a file or directory')
+      addTerminalHistory('  date              Show current date and time')
+      addTerminalHistory('  echo <text>       Echo text')
+      addTerminalHistory('  whoami            Show current user')
+      addTerminalHistory('  ai                Show AI provider status')
+      addTerminalHistory('  git status        Show git status')
+      addTerminalHistory('  git log           Show recent commits')
+      addTerminalHistory('  todo              Show TODO summary')
+      addTerminalHistory('  version           Show AICodeStudio version')
+      addTerminalHistory('  neofetch          System information')
+      addTerminalHistory('  tree              Show file tree')
+    } else if (lower === 'clear') {
       clearTerminalHistory()
       return
-    } else if (trimmed === 'ls') {
-      addTerminalHistory('  src/  public/  package.json  tsconfig.json  README.md  .gitignore')
-    } else if (trimmed === 'pwd') {
-      addTerminalHistory('/home/user/AICodeStudio')
-    } else if (trimmed === 'date') {
+    } else if (lower === 'ls' || lower.startsWith('ls ')) {
+      const targetPath = trimmed.slice(2).trim()
+      const listPath = targetPath
+        ? (targetPath.startsWith('/') ? targetPath : `${cwd === '/' ? '' : cwd}/${targetPath}`)
+        : cwd
+      const items = listDirectory(listPath)
+      if (items.length === 0) {
+        addTerminalHistory(`  (empty directory: ${listPath})`)
+      } else {
+        addTerminalHistory(`  ${items.sort().join('  ')}`)
+      }
+    } else if (lower.startsWith('cd ')) {
+      const target = trimmed.slice(3).trim()
+      if (target === '/' || target === '~') {
+        useIDEStore.getState().setTerminalCwd('/')
+        addTerminalHistory('  Changed to /')
+      } else if (target === '..') {
+        const parts = cwd.split('/').filter(Boolean)
+        parts.pop()
+        const newPath = '/' + parts.join('/')
+        useIDEStore.getState().setTerminalCwd(newPath || '/')
+        addTerminalHistory(`  Changed to ${newPath || '/'}`)
+      } else {
+        const newPath = target.startsWith('/') ? target : `${cwd === '/' ? '' : cwd}/${target}`
+        // Verify the directory exists
+        const items = listDirectory(newPath)
+        const exists = state.fileTree.some((n) => n.path === newPath && n.type === 'folder') ||
+          Object.keys(state.fileContents).some((p) => p.startsWith(newPath + '/'))
+        if (exists || items.length > 0 || newPath === '/') {
+          useIDEStore.getState().setTerminalCwd(newPath)
+          addTerminalHistory(`  Changed to ${newPath}`)
+        } else {
+          addTerminalHistory(`  cd: no such directory: ${target}`)
+        }
+      }
+    } else if (lower === 'pwd') {
+      addTerminalHistory(cwd)
+    } else if (lower.startsWith('cat ')) {
+      const fileName = trimmed.slice(4).trim()
+      const filePath = fileName.startsWith('/') ? fileName : `${cwd === '/' ? '' : cwd}/${fileName}`
+      const content = state.fileContents[filePath]
+      if (content !== undefined) {
+        content.split('\n').forEach((line) => addTerminalHistory(line))
+      } else {
+        addTerminalHistory(`  cat: ${fileName}: No such file`)
+      }
+    } else if (lower.startsWith('touch ')) {
+      const fileName = trimmed.slice(6).trim()
+      if (!fileName) {
+        addTerminalHistory('  touch: missing file operand')
+        return
+      }
+      const filePath = fileName.startsWith('/') ? fileName : `${cwd === '/' ? '' : cwd}/${fileName}`
+      if (state.fileContents[filePath] !== undefined) {
+        addTerminalHistory(`  touch: ${fileName} already exists`)
+      } else {
+        state.createFile(filePath, '')
+        addTerminalHistory(`  Created: ${filePath}`)
+      }
+    } else if (lower.startsWith('mkdir ')) {
+      const dirName = trimmed.slice(6).trim()
+      if (!dirName) {
+        addTerminalHistory('  mkdir: missing directory operand')
+        return
+      }
+      const dirPath = dirName.startsWith('/') ? dirName : `${cwd === '/' ? '' : cwd}/${dirName}`
+      state.createFolder(dirPath)
+      addTerminalHistory(`  Created directory: ${dirPath}`)
+    } else if (lower.startsWith('rm ')) {
+      const name = trimmed.slice(3).trim()
+      if (!name) {
+        addTerminalHistory('  rm: missing operand')
+        return
+      }
+      const path = name.startsWith('/') ? name : `${cwd === '/' ? '' : cwd}/${name}`
+      if (state.fileContents[path] !== undefined || state.fileTree.some((n) => n.path === path)) {
+        state.deleteNode(path)
+        addTerminalHistory(`  Removed: ${path}`)
+      } else {
+        addTerminalHistory(`  rm: ${name}: No such file or directory`)
+      }
+    } else if (lower.startsWith('mv ')) {
+      const parts = trimmed.slice(3).trim().split(/\s+/)
+      if (parts.length < 2) {
+        addTerminalHistory('  mv: missing destination operand')
+        return
+      }
+      const oldPath = parts[0].startsWith('/') ? parts[0] : `${cwd === '/' ? '' : cwd}/${parts[0]}`
+      const newName = parts[1]
+      if (state.fileContents[oldPath] !== undefined || state.fileTree.some((n) => n.path === oldPath)) {
+        state.renameNode(oldPath, newName)
+        addTerminalHistory(`  Renamed: ${parts[0]} → ${newName}`)
+      } else {
+        addTerminalHistory(`  mv: ${parts[0]}: No such file or directory`)
+      }
+    } else if (lower === 'date') {
       addTerminalHistory(new Date().toLocaleString())
-    } else if (trimmed === 'version') {
+    } else if (lower === 'version') {
       addTerminalHistory('AICodeStudio v1.0.0 — Next-Generation AI-Powered IDE')
     } else if (trimmed.startsWith('echo ')) {
-      addTerminalHistory(cmd.slice(5))
-    } else if (trimmed === 'git status') {
-      addTerminalHistory('On branch main')
-      addTerminalHistory('Changes not staged for commit:')
-      addTerminalHistory('  modified:   src/components/Editor.tsx')
-      addTerminalHistory('  modified:   src/app/page.tsx')
-      addTerminalHistory('')
-      addTerminalHistory('Untracked files:')
-      addTerminalHistory('  src/lib/ai-providers.ts')
-    } else if (trimmed === 'git') {
+      addTerminalHistory(trimmed.slice(5))
+    } else if (lower === 'whoami') {
+      addTerminalHistory('user@aicode')
+    } else if (lower === 'tree') {
+      const printTree = (nodes: typeof state.fileTree, prefix: string = '') => {
+        nodes.forEach((node, i) => {
+          const isLast = i === nodes.length - 1
+          const connector = isLast ? '└── ' : '├── '
+          const childPrefix = isLast ? '    ' : '│   '
+          addTerminalHistory(`${prefix}${connector}${node.name}${node.type === 'folder' ? '/' : ''}`)
+          if (node.children) {
+            printTree(node.children, prefix + childPrefix)
+          }
+        })
+      }
+      if (state.fileTree.length === 0) {
+        addTerminalHistory('  (empty workspace)')
+      } else {
+        printTree(state.fileTree)
+      }
+    } else if (lower === 'git status') {
+      addTerminalHistory(`On branch ${state.gitBranch}`)
+      if (state.gitStaged.length > 0) {
+        addTerminalHistory('Changes to be committed:')
+        state.gitStaged.forEach((f) => addTerminalHistory(`  new file:   ${f}`))
+      }
+      if (state.gitUnstaged.length > 0) {
+        addTerminalHistory('Changes not staged for commit:')
+        state.gitUnstaged.forEach((f) => addTerminalHistory(`  modified:   ${f}`))
+      }
+      if (state.gitStaged.length === 0 && state.gitUnstaged.length === 0) {
+        addTerminalHistory('nothing to commit, working tree clean')
+      }
+    } else if (lower === 'git log') {
+      if (state.gitCommitCount === 0) {
+        addTerminalHistory('fatal: your current branch does not have any commits yet')
+      } else {
+        for (let i = 0; i < Math.min(state.gitCommitCount, 5); i++) {
+          addTerminalHistory(`commit ${Math.random().toString(36).slice(2, 9)}`)
+          addTerminalHistory(`Author: User <user@aicode>`)
+          addTerminalHistory(`Date:   ${new Date(Date.now() - i * 86400000).toISOString()}`)
+          addTerminalHistory(``)
+          addTerminalHistory(`    Commit ${state.gitCommitCount - i}`)
+          addTerminalHistory(``)
+        }
+      }
+    } else if (lower === 'git') {
       addTerminalHistory('usage: git [subcommand]')
       addTerminalHistory('  status    Show working tree status')
       addTerminalHistory('  log       Show commit logs')
       addTerminalHistory('  diff      Show changes')
-    } else if (trimmed === 'ai') {
-      addTerminalHistory('AI Providers:')
-      addTerminalHistory('  openclaw  connected    model: openclaw-4')
-      addTerminalHistory('  hermes    disconnected  model: hermes-pro')
-    } else if (trimmed === 'todo') {
-      const todos = useIDEStore.getState().todos
+    } else if (lower === 'ai') {
+      const providers = state.aiProviders
+      if (providers.length === 0) {
+        addTerminalHistory('AI Providers: none configured')
+        addTerminalHistory('  Use the AI panel to add a provider')
+      } else {
+        addTerminalHistory('AI Providers:')
+        providers.forEach((p) => {
+          const statusIcon = p.status === 'connected' ? '[+]' : p.status === 'error' ? '[!]' : '[-]'
+          addTerminalHistory(`  ${statusIcon} ${p.name}  ${p.status}  model: ${p.model}`)
+        })
+      }
+    } else if (lower === 'todo') {
+      const todos = state.todos
       const pending = todos.filter(t => !t.completed).length
       const completed = todos.filter(t => t.completed).length
       addTerminalHistory(`TODOs: ${pending} pending, ${completed} completed`)
       todos.filter(t => !t.completed).forEach(t => {
-        const priority = t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'
+        const priority = t.priority === 'high' ? '[H]' : t.priority === 'medium' ? '[M]' : '[L]'
         addTerminalHistory(`  ${priority} ${t.text}`)
       })
-    } else if (trimmed === 'whoami') {
-      addTerminalHistory('developer@aicode')
-    } else if (trimmed === 'neofetch') {
-      addTerminalHistory('  ╭──────────────────────╮')
-      addTerminalHistory('  │   AICodeStudio v1.0   │')
-      addTerminalHistory('  │   Next.js 16 + React  │')
-      addTerminalHistory('  │   Monaco Editor       │')
-      addTerminalHistory('  │   PWA Ready           │')
-      addTerminalHistory('  ╰──────────────────────╯')
+    } else if (lower === 'neofetch') {
+      addTerminalHistory('  ┌──────────────────────────────┐')
+      addTerminalHistory('  │  AICodeStudio v1.0           │')
+      addTerminalHistory('  │  Next.js 16 + React 19       │')
+      addTerminalHistory('  │  Monaco Editor               │')
+      addTerminalHistory(`  │  Files: ${Object.keys(state.fileContents).length}                  │`)
+      addTerminalHistory(`  │  Providers: ${state.aiProviders.filter(p => p.status === 'connected').length} connected         │`)
+      addTerminalHistory(`  │  TODOs: ${state.todos.filter(t => !t.completed).length} pending             │`)
+      addTerminalHistory('  │  PWA Ready                   │')
+      addTerminalHistory('  └──────────────────────────────┘')
     } else if (trimmed === '') {
-      // empty
+      // empty command
     } else {
-      addTerminalHistory(`command not found: ${cmd}`)
+      addTerminalHistory(`command not found: ${trimmed}`)
+      addTerminalHistory('Type "help" for available commands')
     }
     addTerminalHistory('')
-  }, [addTerminalHistory, clearTerminalHistory])
+
+    // Save to command history
+    if (trimmed) {
+      commandHistoryRef.current = [...commandHistoryRef.current, trimmed].slice(-50)
+      historyIndexRef.current = -1
+    }
+  }, [addTerminalHistory, clearTerminalHistory, listDirectory])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     processCommand(input)
     setInput('')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (commandHistoryRef.current.length > 0) {
+        const newIndex = historyIndexRef.current < commandHistoryRef.current.length - 1
+          ? historyIndexRef.current + 1
+          : historyIndexRef.current
+        historyIndexRef.current = newIndex
+        setInput(commandHistoryRef.current[commandHistoryRef.current.length - 1 - newIndex])
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (historyIndexRef.current > 0) {
+        historyIndexRef.current -= 1
+        setInput(commandHistoryRef.current[commandHistoryRef.current.length - 1 - historyIndexRef.current])
+      } else {
+        historyIndexRef.current = -1
+        setInput('')
+      }
+    }
   }
 
   return (
@@ -140,6 +358,13 @@ export const TerminalPanel = memo(function TerminalPanel() {
         role="log"
         aria-label="Terminal output"
       >
+        {terminalHistory.length === 0 && (
+          <div className="text-[#30363d]">
+            <div>AICodeStudio Terminal v1.0.0</div>
+            <div>Type &quot;help&quot; for available commands</div>
+            <div></div>
+          </div>
+        )}
         {terminalHistory.map((line, i) => (
           <div key={i} className={
             line.startsWith('$')
@@ -157,6 +382,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="flex-1 bg-transparent text-[#e6edf3] outline-none caret-[#00d4aa]"
             spellCheck={false}
             autoComplete="off"

@@ -8,6 +8,7 @@ import { AIChatPanel } from './ai-chat'
 import { GitHubPanel } from './github-panel'
 import { ExtensionsPanel } from './extensions-panel'
 import { TodosPanel } from './todos-panel'
+import { SettingsPanel } from './settings-panel'
 
 export function SidebarPanel() {
   const { activeSidebarPanel, sidebarVisible, sidebarWidth } = useIDEStore()
@@ -26,33 +27,7 @@ export function SidebarPanel() {
       {activeSidebarPanel === 'ai' && <AIChatPanel />}
       {activeSidebarPanel === 'github' && <GitHubPanel />}
       {activeSidebarPanel === 'extensions' && <ExtensionsPanel />}
-      {activeSidebarPanel === 'settings' && (
-        <div className="h-full flex flex-col">
-          <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
-            Settings
-          </div>
-          <div className="p-4">
-            <div className="text-[13px] text-[#e6edf3] font-mono mb-3">Preferences</div>
-            <div className="space-y-3">
-              {[
-                { label: 'Font Size', value: '13px' },
-                { label: 'Tab Size', value: '2' },
-                { label: 'Minimap', value: 'On' },
-                { label: 'Word Wrap', value: 'Off' },
-                { label: 'Auto Save', value: 'On' },
-                { label: 'Ligatures', value: 'On' },
-                { label: 'Line Numbers', value: 'On' },
-                { label: 'Bracket Pairs', value: 'Colorized' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#6e7681] font-mono">{item.label}</span>
-                  <span className="text-[12px] text-[#00d4aa] font-mono">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeSidebarPanel === 'settings' && <SettingsPanel />}
     </div>
   )
 }

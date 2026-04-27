@@ -10,7 +10,6 @@ export interface FileNode {
   type: 'file' | 'folder'
   children?: FileNode[]
   language?: string
-  content?: string
 }
 
 export interface TabInfo {
@@ -26,16 +25,18 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  provider: 'openclaw' | 'hermes'
+  provider: string
   timestamp: number
 }
 
 export interface AIProvider {
-  id: 'openclaw' | 'hermes'
+  id: string
   name: string
-  status: 'connected' | 'disconnected' | 'connecting'
+  status: 'connected' | 'disconnected' | 'connecting' | 'error'
   model: string
   apiKey?: string
+  endpoint?: string
+  error?: string
 }
 
 export interface TodoItem {
@@ -47,18 +48,71 @@ export interface TodoItem {
   source?: 'user' | 'agent'
 }
 
-// Cursor position from Monaco editor
 export interface CursorPosition {
   line: number
   column: number
 }
 
-// Notification type
 export interface Notification {
   id: string
   type: 'info' | 'success' | 'warning' | 'error'
   message: string
   timestamp: number
+}
+
+export interface EditorSettings {
+  fontSize: number
+  tabSize: number
+  minimap: boolean
+  wordWrap: 'on' | 'off' | 'wordWrapColumn'
+  autoSave: boolean
+  fontLigatures: boolean
+  lineNumbers: 'on' | 'off' | 'relative'
+  bracketPairColorization: boolean
+  theme: 'dark' | 'light'
+}
+
+export interface SearchResult {
+  filePath: string
+  fileName: string
+  line: number
+  column: number
+  text: string
+}
+
+export interface OutputEntry {
+  timestamp: number
+  source: string
+  message: string
+  level: 'info' | 'warn' | 'error'
+}
+
+// Helper: get language from filename
+function getLanguageFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase()
+  const map: Record<string, string> = {
+    tsx: 'typescript', ts: 'typescript', jsx: 'javascript', js: 'javascript',
+    json: 'json', css: 'css', html: 'html', md: 'markdown', svg: 'xml',
+    py: 'python', rs: 'rust', go: 'go', gitignore: 'plaintext',
+    yml: 'yaml', yaml: 'yaml', toml: 'ini', sh: 'shell', bash: 'shell',
+    sql: 'sql', graphql: 'graphql', prisma: 'prisma', env: 'plaintext',
+    txt: 'plaintext', xml: 'xml', dockerfile: 'dockerfile',
+  }
+  return map[ext || ''] || 'plaintext'
+}
+
+// Helper: sort file nodes (folders first, then alphabetically)
+function sortFileNodes(nodes: FileNode[]): FileNode[] {
+  return [...nodes].sort((a, b) => {
+    if (a.type === 'folder' && b.type === 'file') return -1
+    if (a.type === 'file' && b.type === 'folder') return 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+// Helper: generate unique IDs
+function generateId(prefix: string = 'id'): string {
+  return `${prefix}-${uuidv4().slice(0, 8)}`
 }
 
 interface IDEState {
@@ -71,35 +125,43 @@ interface IDEState {
   openTabs: TabInfo[]
   activeTabId: string | null
   cursorPosition: CursorPosition
+  editorSettings: EditorSettings
 
   // Bottom Panel
   bottomPanelVisible: boolean
   bottomPanelHeight: number
   activeBottomPanel: BottomPanel
 
-  // File System
+  // Virtual File System
   fileTree: FileNode[]
+  fileContents: Record<string, string>
   expandedFolders: Record<string, boolean>
+  workspaceName: string
 
   // AI
   aiProviders: AIProvider[]
   chatMessages: ChatMessage[]
   isAiLoading: boolean
-  activeAiProvider: 'openclaw' | 'hermes'
+  activeAiProvider: string
 
   // GitHub
   gitRepos: string[]
   isGitCloning: boolean
   gitCloneUrl: string
+  githubToken: string
+
+  // Git (virtual)
+  gitBranch: string
+  gitStaged: string[]
+  gitUnstaged: string[]
+  gitCommitCount: number
 
   // Command Palette
   commandPaletteOpen: boolean
 
-  // Theme
-  theme: 'dark' | 'light'
-
   // Terminal
   terminalHistory: string[]
+  terminalCwd: string
 
   // TODOs
   todos: TodoItem[]
@@ -107,44 +169,58 @@ interface IDEState {
   // Notifications
   notifications: Notification[]
 
+  // Output Log
+  outputLog: OutputEntry[]
+
   // PWA
   pwaInstallPrompt: unknown | null
   pwaInstallAvailable: boolean
 
-  // Actions
+  // ─── Actions ────────────────────────────────────────────
+
   setActiveSidebarPanel: (panel: SidebarPanel) => void
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
 
-  openFile: (file: FileNode) => void
+  openFile: (path: string) => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   updateTabContent: (tabId: string, content: string) => void
   setCursorPosition: (position: CursorPosition) => void
+  updateEditorSettings: (settings: Partial<EditorSettings>) => void
 
   toggleBottomPanel: () => void
   setBottomPanelHeight: (height: number) => void
   setActiveBottomPanel: (panel: BottomPanel) => void
 
+  // Virtual File System actions
+  createFile: (path: string, content?: string) => void
+  createFolder: (path: string) => void
+  deleteNode: (path: string) => void
+  renameNode: (oldPath: string, newName: string) => void
+  readFile: (path: string) => string | undefined
+  writeFile: (path: string, content: string) => void
   toggleFolder: (path: string) => void
   isFolderExpanded: (path: string) => boolean
-  setFileTree: (tree: FileNode[]) => void
 
   addChatMessage: (message: ChatMessage) => void
   clearChatMessages: () => void
   setAiLoading: (loading: boolean) => void
-  setActiveAiProvider: (provider: 'openclaw' | 'hermes') => void
+  setActiveAiProvider: (provider: string) => void
   updateAiProvider: (id: string, updates: Omit<Partial<AIProvider>, 'id'>) => void
+  addAiProvider: (provider: AIProvider) => void
+  removeAiProvider: (id: string) => void
 
   setGitCloneUrl: (url: string) => void
   setIsGitCloning: (cloning: boolean) => void
   addGitRepo: (repo: string) => void
+  setGithubToken: (token: string) => void
 
   setCommandPaletteOpen: (open: boolean) => void
-  setTheme: (theme: 'dark' | 'light') => void
 
   addTerminalHistory: (entry: string) => void
   clearTerminalHistory: () => void
+  setTerminalCwd: (cwd: string) => void
 
   // TODO actions
   addTodo: (text: string, priority?: TodoItem['priority'], source?: TodoItem['source']) => void
@@ -157,149 +233,83 @@ interface IDEState {
   addNotification: (type: Notification['type'], message: string) => void
   removeNotification: (id: string) => void
 
+  // Output log actions
+  addOutputEntry: (source: string, message: string, level?: OutputEntry['level']) => void
+  clearOutputLog: () => void
+
+  // Search
+  searchInFiles: (query: string) => SearchResult[]
+
+  // Git virtual actions
+  stageFile: (path: string) => void
+  unstageFile: (path: string) => void
+
   // PWA actions
   setPwaInstallPrompt: (prompt: unknown) => void
   setPwaInstallAvailable: (available: boolean) => void
 }
 
-const defaultFileTree: FileNode[] = [
-  {
-    name: 'AICodeStudio',
-    path: '/AICodeStudio',
-    type: 'folder',
-    children: [
-      {
-        name: 'src',
-        path: '/AICodeStudio/src',
-        type: 'folder',
-        children: [
-          {
-            name: 'app',
-            path: '/AICodeStudio/src/app',
-            type: 'folder',
-            children: [
-              { name: 'page.tsx', path: '/AICodeStudio/src/app/page.tsx', type: 'file', language: 'typescript' },
-              { name: 'layout.tsx', path: '/AICodeStudio/src/app/layout.tsx', type: 'file', language: 'typescript' },
-              { name: 'globals.css', path: '/AICodeStudio/src/app/globals.css', type: 'file', language: 'css' },
-            ],
-          },
-          {
-            name: 'components',
-            path: '/AICodeStudio/src/components',
-            type: 'folder',
-            children: [
-              { name: 'Editor.tsx', path: '/AICodeStudio/src/components/Editor.tsx', type: 'file', language: 'typescript' },
-              { name: 'Sidebar.tsx', path: '/AICodeStudio/src/components/Sidebar.tsx', type: 'file', language: 'typescript' },
-              { name: 'Terminal.tsx', path: '/AICodeStudio/src/components/Terminal.tsx', type: 'file', language: 'typescript' },
-            ],
-          },
-          {
-            name: 'lib',
-            path: '/AICodeStudio/src/lib',
-            type: 'folder',
-            children: [
-              { name: 'utils.ts', path: '/AICodeStudio/src/lib/utils.ts', type: 'file', language: 'typescript' },
-              { name: 'ai-providers.ts', path: '/AICodeStudio/src/lib/ai-providers.ts', type: 'file', language: 'typescript' },
-            ],
-          },
-        ],
-      },
-      {
-        name: 'public',
-        path: '/AICodeStudio/public',
-        type: 'folder',
-        children: [
-          { name: 'logo.svg', path: '/AICodeStudio/public/logo.svg', type: 'file', language: 'xml' },
-        ],
-      },
-      { name: 'package.json', path: '/AICodeStudio/package.json', type: 'file', language: 'json' },
-      { name: 'tsconfig.json', path: '/AICodeStudio/tsconfig.json', type: 'file', language: 'json' },
-      { name: 'README.md', path: '/AICodeStudio/README.md', type: 'file', language: 'markdown' },
-      { name: '.gitignore', path: '/AICodeStudio/.gitignore', type: 'file', language: 'plaintext' },
-    ],
-  },
-]
-
-const sampleFileContents: Record<string, string> = {
-  '/AICodeStudio/src/app/page.tsx': `import { Editor } from '@/components/Editor'\nimport { Sidebar } from '@/components/Sidebar'\n\nexport default function Home() {\n  return (\n    <main className="flex h-screen">\n      <Sidebar />\n      <Editor />\n    </main>\n  )\n}`,
-  '/AICodeStudio/src/app/layout.tsx': `import type { Metadata } from 'next'\nimport './globals.css'\n\nexport const metadata: Metadata = {\n  title: 'AICodeStudio',\n  description: 'Next-generation AI-powered IDE',\n}\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  )\n}`,
-  '/AICodeStudio/src/components/Editor.tsx': `'use client'\n\nimport { useState } from 'react'\n\nexport function Editor() {\n  const [content, setContent] = useState('')\n  return (\n    <div className="flex-1 bg-[#0d1117] text-white p-4">\n      <textarea\n        value={content}\n        onChange={(e) => setContent(e.target.value)}\n        className="w-full h-full bg-transparent outline-none font-mono"\n      />\n    </div>\n  )\n}`,
-  '/AICodeStudio/src/components/Sidebar.tsx': `'use client'\n\nexport function Sidebar() {\n  return (\n    <aside className="w-64 bg-[#0d1117] border-r border-[#00e5ff]/20">\n      <div className="p-4 text-[#00e5ff] font-mono text-sm">EXPLORER</div>\n    </aside>\n  )\n}`,
-  '/AICodeStudio/src/components/Terminal.tsx': `'use client'\n\nimport { useEffect, useRef } from 'react'\n\nexport function Terminal() {\n  const termRef = useRef<HTMLDivElement>(null)\n  useEffect(() => { console.log('Terminal mounted') }, [])\n  return <div ref={termRef} className="h-full bg-[#0d1117] text-green-400 font-mono p-2" />\n}`,
-  '/AICodeStudio/src/lib/utils.ts': `import { type ClassValue, clsx } from 'clsx'\nimport { twMerge } from 'tailwind-merge'\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs))\n}`,
-  '/AICodeStudio/src/lib/ai-providers.ts': `export interface AIProvider {\n  id: string\n  name: string\n  endpoint: string\n  models: string[]\n}\n\nexport const OPENCLAW: AIProvider = {\n  id: 'openclaw', name: 'OpenClaw',\n  endpoint: 'https://api.openclaw.dev/v1',\n  models: ['openclaw-4', 'openclaw-3.5-turbo'],\n}\n\nexport const HERMES: AIProvider = {\n  id: 'hermes', name: 'Hermes',\n  endpoint: 'https://api.hermes.ai/v1',\n  models: ['hermes-pro', 'hermes-fast'],\n}`,
-  '/AICodeStudio/package.json': `{\n  "name": "aicodestudio",\n  "version": "1.0.0",\n  "private": true,\n  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },\n  "dependencies": { "next": "^16.0.0", "react": "^19.0.0", "react-dom": "^19.0.0" }\n}`,
-  '/AICodeStudio/tsconfig.json': `{\n  "compilerOptions": {\n    "target": "ES2017", "lib": ["dom", "dom.iterable", "esnext"],\n    "allowJs": true, "skipLibCheck": true, "strict": true,\n    "noEmit": true, "esModuleInterop": true, "module": "esnext",\n    "moduleResolution": "bundler", "resolveJsonModule": true,\n    "isolatedModules": true, "jsx": "preserve", "incremental": true,\n    "paths": { "@/*": ["./src/*"] }\n  },\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],\n  "exclude": ["node_modules"]\n}`,
-  '/AICodeStudio/README.md': `# AICodeStudio\n\nNext-generation AI-powered IDE with OpenClaw and Hermes integration.\n\n## Features\n\n- Monaco Editor (VSCode core)\n- AI-powered code assistance\n- GitHub integration\n- Integrated terminal\n- Extensible plugin system\n`,
-  '/AICodeStudio/.gitignore': `node_modules/\n.next/\n.env\n.env.local\n*.log\ndist/\nbuild/\n.DS_Store`,
-  '/AICodeStudio/src/app/globals.css': `@import "tailwindcss";\n\n:root { --bg-primary: #0d1117; --accent: #00e5ff; --text: #e6edf3; }\nbody { background: var(--bg-primary); color: var(--text); font-family: 'JetBrains Mono', monospace; }`,
-  '/AICodeStudio/public/logo.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n  <rect width="100" height="100" rx="12" fill="#0d1117"/>\n  <text x="50" y="60" text-anchor="middle" fill="#00e5ff" font-size="40" font-family="monospace">&lt;/&gt;</text>\n</svg>`,
-}
-
-// Generate unique IDs using uuid
-function generateId(prefix: string = 'id'): string {
-  return `${prefix}-${uuidv4().slice(0, 8)}`
-}
-
 export const useIDEStore = create<IDEState>((set, get) => ({
-  // Sidebar
+  // ─── Initial State ─────────────────────────────────────
+
   activeSidebarPanel: 'explorer',
   sidebarVisible: true,
   sidebarWidth: 260,
 
-  // Editor
   openTabs: [],
   activeTabId: null,
   cursorPosition: { line: 1, column: 1 },
+  editorSettings: {
+    fontSize: 13,
+    tabSize: 2,
+    minimap: true,
+    wordWrap: 'off',
+    autoSave: true,
+    fontLigatures: true,
+    lineNumbers: 'on',
+    bracketPairColorization: true,
+    theme: 'dark',
+  },
 
-  // Bottom Panel
   bottomPanelVisible: true,
   bottomPanelHeight: 220,
   activeBottomPanel: 'terminal',
 
-  // File System — using Record<string, boolean> for JSON serialization
-  fileTree: defaultFileTree,
-  expandedFolders: { '/AICodeStudio': true, '/AICodeStudio/src': true },
+  // Virtual File System — starts empty, user creates files
+  fileTree: [],
+  fileContents: {},
+  expandedFolders: {},
+  workspaceName: '',
 
-  // AI
-  aiProviders: [
-    { id: 'openclaw', name: 'OpenClaw', status: 'connected', model: 'openclaw-4' },
-    { id: 'hermes', name: 'Hermes', status: 'disconnected', model: 'hermes-pro' },
-  ],
+  // AI — starts disconnected, user configures
+  aiProviders: [],
   chatMessages: [],
   isAiLoading: false,
-  activeAiProvider: 'openclaw',
+  activeAiProvider: '',
 
   // GitHub
   gitRepos: [],
   isGitCloning: false,
   gitCloneUrl: '',
+  githubToken: '',
 
-  // Command Palette
+  // Git (virtual)
+  gitBranch: 'main',
+  gitStaged: [],
+  gitUnstaged: [],
+  gitCommitCount: 0,
+
   commandPaletteOpen: false,
 
-  // Theme
-  theme: 'dark',
+  terminalHistory: [],
+  terminalCwd: '/',
 
-  // Terminal
-  terminalHistory: [
-    '$ AICodeStudio v1.0.0 — Ready',
-    '$ Type "help" for available commands',
-    '',
-  ],
+  todos: [],
 
-  // TODOs
-  todos: [
-    { id: generateId('todo'), text: 'Configure OpenClaw API key', completed: false, priority: 'high', createdAt: Date.now() - 86400000, source: 'agent' },
-    { id: generateId('todo'), text: 'Set up project file structure', completed: true, priority: 'high', createdAt: Date.now() - 172800000, source: 'agent' },
-    { id: generateId('todo'), text: 'Connect Hermes provider', completed: false, priority: 'medium', createdAt: Date.now() - 43200000, source: 'user' },
-    { id: generateId('todo'), text: 'Review code architecture', completed: false, priority: 'low', createdAt: Date.now() - 21600000, source: 'agent' },
-  ],
-
-  // Notifications
   notifications: [],
 
-  // PWA
+  outputLog: [],
+
   pwaInstallPrompt: null,
   pwaInstallAvailable: false,
 
@@ -314,19 +324,21 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
   setSidebarWidth: (width) => set({ sidebarWidth: Math.max(180, Math.min(500, width)) }),
 
-  openFile: (file) =>
+  openFile: (path) =>
     set((state) => {
-      const existingTab = state.openTabs.find((t) => t.path === file.path)
+      const existingTab = state.openTabs.find((t) => t.path === path)
       if (existingTab) {
         return { activeTabId: existingTab.id }
       }
+      const fileName = path.split('/').pop() || 'untitled'
+      const content = state.fileContents[path] ?? ''
       const newTab: TabInfo = {
         id: generateId('tab'),
-        path: file.path,
-        name: file.name,
-        language: file.language || 'plaintext',
+        path,
+        name: fileName,
+        language: getLanguageFromPath(path),
         isModified: false,
-        content: sampleFileContents[file.path] || `// ${file.name} — AICodeStudio`,
+        content,
       }
       return {
         openTabs: [...state.openTabs, newTab],
@@ -337,7 +349,6 @@ export const useIDEStore = create<IDEState>((set, get) => ({
   closeTab: (tabId) =>
     set((state) => {
       const closingTab = state.openTabs.find((t) => t.id === tabId)
-      // Auto-save: remove modified flag when closing
       const newTabs = state.openTabs.filter((t) => t.id !== tabId)
       const newActiveId =
         state.activeTabId === tabId
@@ -346,7 +357,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
             : null
           : state.activeTabId
       if (closingTab?.isModified) {
-        get().addNotification('info', `Closed ${closingTab.name} (unsaved changes discarded)`)
+        get().addNotification('info', `Closed ${closingTab.name} — unsaved changes discarded`)
       }
       return { openTabs: newTabs, activeTabId: newActiveId }
     }),
@@ -362,9 +373,176 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   setCursorPosition: (position) => set({ cursorPosition: position }),
 
+  updateEditorSettings: (settings) =>
+    set((state) => ({
+      editorSettings: { ...state.editorSettings, ...settings },
+    })),
+
   toggleBottomPanel: () => set((state) => ({ bottomPanelVisible: !state.bottomPanelVisible })),
   setBottomPanelHeight: (height) => set({ bottomPanelHeight: Math.max(100, Math.min(500, height)) }),
   setActiveBottomPanel: (panel) => set({ activeBottomPanel: panel, bottomPanelVisible: true }),
+
+  // ─── Virtual File System ────────────────────────────────
+
+  createFile: (path, content = '') => {
+    const state = get()
+    if (state.fileContents[path] !== undefined) {
+      get().addNotification('warning', `File already exists: ${path}`)
+      return
+    }
+    const fileName = path.split('/').pop() || 'untitled'
+    const parentPath = path.substring(0, path.lastIndexOf('/'))
+
+    set((state) => {
+      const newContents = { ...state.fileContents, [path]: content }
+      const newTree = addFileNode(state.fileTree, parentPath, {
+        name: fileName,
+        path,
+        type: 'file',
+        language: getLanguageFromPath(path),
+      })
+      // Auto-expand parent
+      const newExpanded = { ...state.expandedFolders, [parentPath]: true }
+      // Mark as unstaged change
+      const newUnstaged = state.gitUnstaged.includes(path) ? state.gitUnstaged : [...state.gitUnstaged, path]
+      return {
+        fileTree: newTree,
+        fileContents: newContents,
+        expandedFolders: newExpanded,
+        gitUnstaged: newUnstaged,
+      }
+    })
+    get().addOutputEntry('FileSystem', `Created file: ${path}`)
+  },
+
+  createFolder: (path) => {
+    const state = get()
+    const folderName = path.split('/').pop() || 'folder'
+    const parentPath = path.substring(0, path.lastIndexOf('/'))
+
+    // Check if folder already exists in tree
+    if (findNode(state.fileTree, path)) {
+      get().addNotification('warning', `Folder already exists: ${path}`)
+      return
+    }
+
+    set((state) => {
+      const newTree = addFileNode(state.fileTree, parentPath, {
+        name: folderName,
+        path,
+        type: 'folder',
+        children: [],
+      })
+      const newExpanded = { ...state.expandedFolders, [path]: true, [parentPath]: true }
+      return { fileTree: newTree, expandedFolders: newExpanded }
+    })
+    get().addOutputEntry('FileSystem', `Created folder: ${path}`)
+  },
+
+  deleteNode: (path) => {
+    const state = get()
+    set((s) => {
+      const newContents = { ...s.fileContents }
+      // Delete all files under this path
+      Object.keys(newContents).forEach((key) => {
+        if (key === path || key.startsWith(path + '/')) {
+          delete newContents[key]
+        }
+      })
+      const newTree = removeFileNode(s.fileTree, path)
+      // Close any open tabs for deleted files
+      const newTabs = s.openTabs.filter((t) => !t.path.startsWith(path) && t.path !== path)
+      const newActiveId = newTabs.find((t) => t.id === s.activeTabId)
+        ? s.activeTabId
+        : newTabs.length > 0
+          ? newTabs[newTabs.length - 1].id
+          : null
+      // Remove from git staging
+      const newStaged = s.gitStaged.filter((p) => p !== path && !p.startsWith(path + '/'))
+      const newUnstaged = s.gitUnstaged.filter((p) => p !== path && !p.startsWith(path + '/'))
+      return {
+        fileTree: newTree,
+        fileContents: newContents,
+        openTabs: newTabs,
+        activeTabId: newActiveId,
+        gitStaged: newStaged,
+        gitUnstaged: newUnstaged,
+      }
+    })
+    get().addOutputEntry('FileSystem', `Deleted: ${path}`)
+  },
+
+  renameNode: (oldPath, newName) => {
+    set((state) => {
+      const node = findNode(state.fileTree, oldPath)
+      if (!node) return state
+
+      const parentPath = oldPath.substring(0, oldPath.lastIndexOf('/'))
+      const newPath = parentPath ? `${parentPath}/${newName}` : `/${newName}`
+
+      // Check if new path already exists
+      if (findNode(state.fileTree, newPath) && newPath !== oldPath) {
+        return state
+      }
+
+      // Update file contents map
+      const newContents: Record<string, string> = {}
+      Object.entries(state.fileContents).forEach(([key, val]) => {
+        if (key === oldPath) {
+          newContents[newPath] = val
+        } else if (key.startsWith(oldPath + '/')) {
+          newContents[key.replace(oldPath, newPath)] = val
+        } else {
+          newContents[key] = val
+        }
+      })
+
+      // Update tree
+      const newTree = renameFileNode(state.fileTree, oldPath, newPath, newName)
+
+      // Update open tabs
+      const newTabs = state.openTabs.map((t) => {
+        if (t.path === oldPath) {
+          return { ...t, path: newPath, name: newName }
+        }
+        if (t.path.startsWith(oldPath + '/')) {
+          return { ...t, path: t.path.replace(oldPath, newPath), name: t.path.split('/').pop() || newName }
+        }
+        return t
+      })
+
+      return {
+        fileTree: newTree,
+        fileContents: newContents,
+        openTabs: newTabs,
+      }
+    })
+    get().addOutputEntry('FileSystem', `Renamed: ${oldPath} → ${newName}`)
+  },
+
+  readFile: (path) => get().fileContents[path],
+
+  writeFile: (path, content) => {
+    set((state) => {
+      const newContents = { ...state.fileContents, [path]: content }
+      // If file doesn't exist in tree, create it
+      const fileExists = !!findNode(state.fileTree, path)
+      const fileName = path.split('/').pop() || 'untitled'
+      const parentPath = path.substring(0, path.lastIndexOf('/'))
+      const newTree = fileExists
+        ? state.fileTree
+        : addFileNode(state.fileTree, parentPath, {
+            name: fileName,
+            path,
+            type: 'file',
+            language: getLanguageFromPath(path),
+          })
+      const newExpanded = fileExists ? state.expandedFolders : { ...state.expandedFolders, [parentPath]: true }
+      // Mark as unstaged
+      const newUnstaged = state.gitUnstaged.includes(path) ? state.gitUnstaged : [...state.gitUnstaged, path]
+      return { fileContents: newContents, fileTree: newTree, expandedFolders: newExpanded, gitUnstaged: newUnstaged }
+    })
+  },
 
   toggleFolder: (path) =>
     set((state) => ({
@@ -376,7 +554,7 @@ export const useIDEStore = create<IDEState>((set, get) => ({
 
   isFolderExpanded: (path) => !!get().expandedFolders[path],
 
-  setFileTree: (tree) => set({ fileTree: tree }),
+  // ─── AI ─────────────────────────────────────────────────
 
   addChatMessage: (message) => set((state) => ({ chatMessages: [...state.chatMessages, message] })),
   clearChatMessages: () => set({ chatMessages: [] }),
@@ -386,18 +564,34 @@ export const useIDEStore = create<IDEState>((set, get) => ({
     set((state) => ({
       aiProviders: state.aiProviders.map((p) => (p.id === id ? { ...p, ...updates } : p)),
     })),
+  addAiProvider: (provider) =>
+    set((state) => ({
+      aiProviders: [...state.aiProviders, provider],
+      activeAiProvider: state.activeAiProvider || provider.id,
+    })),
+  removeAiProvider: (id) =>
+    set((state) => ({
+      aiProviders: state.aiProviders.filter((p) => p.id !== id),
+      activeAiProvider: state.activeAiProvider === id
+        ? (state.aiProviders.find((p) => p.id !== id)?.id || '')
+        : state.activeAiProvider,
+    })),
+
+  // ─── GitHub ─────────────────────────────────────────────
 
   setGitCloneUrl: (url) => set({ gitCloneUrl: url }),
   setIsGitCloning: (cloning) => set({ isGitCloning: cloning }),
   addGitRepo: (repo) => set((state) => ({ gitRepos: [...state.gitRepos, repo] })),
+  setGithubToken: (token) => set({ githubToken: token }),
 
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
-  setTheme: (theme) => set({ theme }),
 
   addTerminalHistory: (entry) => set((state) => ({ terminalHistory: [...state.terminalHistory, entry] })),
-  clearTerminalHistory: () => set({ terminalHistory: ['$ AICodeStudio v1.0.0 — Ready', ''] }),
+  clearTerminalHistory: () => set({ terminalHistory: [] }),
+  setTerminalCwd: (cwd) => set({ terminalCwd: cwd }),
 
-  // TODO actions
+  // ─── TODOs ──────────────────────────────────────────────
+
   addTodo: (text, priority = 'medium', source = 'user') =>
     set((state) => ({
       todos: [...state.todos, {
@@ -430,13 +624,13 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       todos: state.todos.filter((t) => !t.completed),
     })),
 
-  // Notification actions
+  // ─── Notifications ──────────────────────────────────────
+
   addNotification: (type, message) => {
     const id = generateId('notif')
     set((state) => ({
       notifications: [...state.notifications, { id, type, message, timestamp: Date.now() }],
     }))
-    // Auto-remove after 4 seconds
     setTimeout(() => {
       get().removeNotification(id)
     }, 4000)
@@ -447,7 +641,126 @@ export const useIDEStore = create<IDEState>((set, get) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
 
-  // PWA actions
+  // ─── Output Log ─────────────────────────────────────────
+
+  addOutputEntry: (source, message, level = 'info') =>
+    set((state) => ({
+      outputLog: [...state.outputLog, { timestamp: Date.now(), source, message, level }],
+    })),
+
+  clearOutputLog: () => set({ outputLog: [] }),
+
+  // ─── Search ─────────────────────────────────────────────
+
+  searchInFiles: (query) => {
+    const state = get()
+    if (!query.trim()) return []
+    const results: SearchResult[] = []
+    const lowerQuery = query.toLowerCase()
+
+    Object.entries(state.fileContents).forEach(([filePath, content]) => {
+      const lines = content.split('\n')
+      lines.forEach((line, index) => {
+        const col = line.toLowerCase().indexOf(lowerQuery)
+        if (col !== -1) {
+          results.push({
+            filePath,
+            fileName: filePath.split('/').pop() || filePath,
+            line: index + 1,
+            column: col + 1,
+            text: line.trim(),
+          })
+        }
+      })
+    })
+    return results
+  },
+
+  // ─── Git Virtual ────────────────────────────────────────
+
+  stageFile: (path) =>
+    set((state) => ({
+      gitStaged: state.gitStaged.includes(path) ? state.gitStaged : [...state.gitStaged, path],
+      gitUnstaged: state.gitUnstaged.filter((p) => p !== path),
+    })),
+
+  unstageFile: (path) =>
+    set((state) => ({
+      gitUnstaged: state.gitUnstaged.includes(path) ? state.gitUnstaged : [...state.gitUnstaged, path],
+      gitStaged: state.gitStaged.filter((p) => p !== path),
+    })),
+
+  // ─── PWA ────────────────────────────────────────────────
+
   setPwaInstallPrompt: (prompt) => set({ pwaInstallPrompt: prompt, pwaInstallAvailable: !!prompt }),
   setPwaInstallAvailable: (available) => set({ pwaInstallAvailable: available }),
 }))
+
+// ─── Tree manipulation helpers ──────────────────────────
+
+function findNode(tree: FileNode[], path: string): FileNode | null {
+  for (const node of tree) {
+    if (node.path === path) return node
+    if (node.children) {
+      const found = findNode(node.children, path)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function addFileNode(tree: FileNode[], parentPath: string, newNode: FileNode): FileNode[] {
+  if (!parentPath || parentPath === '/') {
+    // Add to root level
+    const exists = tree.some((n) => n.path === newNode.path)
+    if (exists) return tree
+    return sortFileNodes([...tree, newNode])
+  }
+
+  return tree.map((node) => {
+    if (node.path === parentPath && node.type === 'folder') {
+      const children = node.children || []
+      const exists = children.some((c) => c.path === newNode.path)
+      if (exists) return node
+      return { ...node, children: sortFileNodes([...children, newNode]) }
+    }
+    if (node.children) {
+      return { ...node, children: addFileNode(node.children, parentPath, newNode) }
+    }
+    return node
+  })
+}
+
+function removeFileNode(tree: FileNode[], path: string): FileNode[] {
+  return tree
+    .filter((node) => node.path !== path)
+    .map((node) => {
+      if (node.children) {
+        return { ...node, children: removeFileNode(node.children, path) }
+      }
+      return node
+    })
+}
+
+function renameFileNode(tree: FileNode[], oldPath: string, newPath: string, newName: string): FileNode[] {
+  return tree.map((node) => {
+    if (node.path === oldPath) {
+      const isFolder = node.type === 'folder'
+      return {
+        ...node,
+        name: newName,
+        path: newPath,
+        ...(isFolder && node.children ? {
+          children: node.children.map((child) => {
+            const childNewPath = newPath + child.path.slice(oldPath.length)
+            return { ...child, path: childNewPath }
+          }),
+        } : {}),
+      }
+    }
+    if (node.children) {
+      return { ...node, children: renameFileNode(node.children, oldPath, newPath, newName) }
+    }
+    return node
+  })
+}

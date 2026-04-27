@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, provider } = await req.json();
+    const body = await req.json();
+    const { message, provider, apiKey, endpoint } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -11,6 +12,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Use the z-ai-web-dev-sdk for AI completions
+    // The API key and endpoint are passed from the client (user-configured)
     const ZAI = (await import('z-ai-web-dev-sdk')).default;
     const zai = await ZAI.create();
 
@@ -19,8 +22,7 @@ export async function POST(req: NextRequest) {
 - Bug detection and fixes
 - Architecture suggestions
 - Best practices and patterns
-Always respond with clear, actionable advice. Use markdown formatting with code blocks when showing code.
-Provider context: The user is connected via ${provider || 'OpenClaw'}.`;
+Always respond with clear, actionable advice. Use markdown formatting with code blocks when showing code.${provider ? ` Provider context: ${provider}.` : ''}`;
 
     const completion = await zai.chat.completions.create({
       messages: [
@@ -31,15 +33,14 @@ Provider context: The user is connected via ${provider || 'OpenClaw'}.`;
 
     const content = completion.choices?.[0]?.message?.content;
     if (content) {
-      return NextResponse.json({ content, provider: provider || 'openclaw' });
+      return NextResponse.json({ content, provider: provider || 'default' });
     }
 
     return NextResponse.json(
-      { error: "No response from AI" },
+      { error: "No response from AI provider" },
       { status: 500 }
     );
   } catch (error: unknown) {
-    console.error('AI API error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `AI request failed: ${message}` },

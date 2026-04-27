@@ -17,12 +17,14 @@ import {
 import { useIDEStore } from '@/store/ide-store'
 
 export function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setActiveSidebarPanel, setTheme, theme, toggleBottomPanel, setActiveBottomPanel } = useIDEStore()
+  const { commandPaletteOpen, setCommandPaletteOpen, setActiveSidebarPanel, editorSettings, updateEditorSettings, toggleBottomPanel, setActiveBottomPanel } = useIDEStore()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const theme = editorSettings.theme
+
   const commands = [
-    { id: 'toggle-theme', label: 'Toggle Theme', shortcut: 'Ctrl+T', Icon: theme === 'dark' ? Sun : Moon, category: 'Preferences', action: () => setTheme(theme === 'dark' ? 'light' : 'dark') },
+    { id: 'toggle-theme', label: 'Toggle Theme', shortcut: 'Ctrl+T', Icon: theme === 'dark' ? Sun : Moon, category: 'Preferences', action: () => updateEditorSettings({ theme: theme === 'dark' ? 'light' : 'dark' }) },
     { id: 'open-explorer', label: 'Show Explorer', Icon: FolderOpen, category: 'View', action: () => setActiveSidebarPanel('explorer') },
     { id: 'open-search', label: 'Show Search', shortcut: 'Ctrl+Shift+F', Icon: Search, category: 'View', action: () => setActiveSidebarPanel('search') },
     { id: 'open-git', label: 'Show Source Control', shortcut: 'Ctrl+Shift+G', Icon: GitBranch, category: 'View', action: () => setActiveSidebarPanel('git') },
@@ -32,7 +34,7 @@ export function CommandPalette() {
     { id: 'open-extensions', label: 'Show Extensions', shortcut: 'Ctrl+Shift+X', Icon: Code2, category: 'View', action: () => setActiveSidebarPanel('extensions') },
     { id: 'open-terminal', label: 'Toggle Terminal', shortcut: 'Ctrl+`', Icon: Terminal, category: 'View', action: () => { setActiveBottomPanel('terminal'); toggleBottomPanel() } },
     { id: 'open-settings', label: 'Open Settings', shortcut: 'Ctrl+,', Icon: Settings, category: 'Preferences', action: () => setActiveSidebarPanel('settings') },
-    { id: 'open-color-theme', label: 'Color Theme', Icon: Palette, category: 'Preferences', action: () => {} },
+    { id: 'open-color-theme', label: 'Color Theme', Icon: Palette, category: 'Preferences', action: () => setActiveSidebarPanel('settings') },
     { id: 'ai-explain', label: 'AI: Explain Code', Icon: Bot, category: 'AI', action: () => setActiveSidebarPanel('ai') },
     { id: 'ai-refactor', label: 'AI: Refactor Code', Icon: Bot, category: 'AI', action: () => setActiveSidebarPanel('ai') },
     { id: 'ai-fix', label: 'AI: Fix Errors', Icon: Bot, category: 'AI', action: () => setActiveSidebarPanel('ai') },
