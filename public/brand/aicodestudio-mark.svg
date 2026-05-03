@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- AICodeStudio Mark — Icon-only version -->
+  <rect width="128" height="128" rx="20" fill="#080c12"/>
+  <rect x="1" y="1" width="126" height="126" rx="19" stroke="rgba(0,212,170,0.15)" stroke-width="1.5" fill="none"/>
+  <!-- Code bracket symbol: < /> -->
+  <path d="M44 40 L24 64 L44 88" stroke="#00d4aa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 40 L104 64 L84 88" stroke="#00d4aa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="74" y1="36" x2="54" y2="92" stroke="#00d4aa" stroke-width="7" stroke-linecap="round"/>
+  <!-- Agent dot -->
+  <circle cx="64" cy="100" r="2.5" fill="#00d4aa" opacity="0.5"/>
+</svg>
