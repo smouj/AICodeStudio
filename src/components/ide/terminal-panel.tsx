@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { Terminal, X, Plus, ChevronDown, Trash2, Wifi, WifiOff } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
+import { colors, typography, radius } from '@/components/hud/tokens'
+import { AgentStatusChip } from '@/components/hud/hud-primitives'
+import { APP_VERSION_DISPLAY } from '@/lib/version'
 
 // ─── WebSocket PTY Connection ───────────────────────────────────────────────
 
@@ -342,7 +345,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
     } else if (lower === 'date') {
       addTerminalHistory(new Date().toLocaleString())
     } else if (lower === 'version') {
-      addTerminalHistory('AICodeStudio v2.0.0 — Next-Generation AI-Powered IDE')
+      addTerminalHistory(`AICodeStudio ${APP_VERSION_DISPLAY} — AI-native workspace for code agents`)
     } else if (trimmed.startsWith('echo ')) {
       addTerminalHistory(trimmed.slice(5))
     } else if (lower === 'whoami') {
@@ -418,7 +421,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
       })
     } else if (lower === 'neofetch') {
       addTerminalHistory('  ┌──────────────────────────────┐')
-      addTerminalHistory('  │  AICodeStudio v2.0.0         │')
+      addTerminalHistory(`  │  AICodeStudio ${APP_VERSION_DISPLAY}       │`)
       addTerminalHistory('  │  Next.js 16 + React 19       │')
       addTerminalHistory('  │  Monaco Editor               │')
       addTerminalHistory(`  │  Files: ${Object.keys(state.fileContents).length}                    │`)
@@ -473,34 +476,68 @@ export const TerminalPanel = memo(function TerminalPanel() {
   const isPtyConnected = pty.connection.connected
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0e14]" role="region" aria-label="Terminal">
+    <div className="h-full flex flex-col" style={{ background: colors.bg.surface }} role="region" aria-label="Terminal">
       {/* Terminal Header */}
-      <div className="flex items-center justify-between px-3 py-1 bg-[#050810] border-b border-[rgba(0,212,170,0.06)] shrink-0">
-        <div className="flex items-center gap-1">
-          <button className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono rounded text-[#00d4aa] bg-[rgba(0,212,170,0.08)] cursor-pointer">
+      <div
+        className="flex items-center justify-between px-3 py-1 shrink-0"
+        style={{ background: colors.bg.base, borderBottom: `1px solid ${colors.border.muted}` }}
+      >
+        <div className="flex items-center gap-1.5">
+          <button
+            className="flex items-center gap-1 px-2 py-0.5 font-mono cursor-pointer"
+            style={{
+              fontSize: typography.fontSize.base,
+              color: colors.accent.DEFAULT,
+              background: colors.accent.dim,
+              borderRadius: radius.md,
+            }}
+          >
             <Terminal size={11} />
-            bash
+            {isPtyConnected ? 'bash' : 'workspace shell'}
           </button>
-          {isPtyConnected ? (
-            <Wifi size={10} className="text-[#00d4aa]" aria-label="Real PTY connected" />
-          ) : (
-            <WifiOff size={10} className="text-[#30363d]" aria-label="Virtual terminal (no PTY)" />
-          )}
-          <span className="text-[9px] font-mono text-[#30363d]">
-            {isPtyConnected ? 'PTY' : 'virtual'}
-          </span>
-          <button className="text-[#30363d] hover:text-[#484f58] transition-colors ml-1 cursor-pointer" aria-label="New terminal">
+          <AgentStatusChip
+            status={isPtyConnected ? 'active' : 'off'}
+            label={isPtyConnected ? 'PTY' : 'Virtual'}
+            size="sm"
+          />
+          <button
+            className="cursor-pointer transition-colors"
+            style={{ color: colors.text.disabled }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.text.dim}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.text.disabled}
+            aria-label="New terminal"
+          >
             <Plus size={12} />
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={clearTerminalHistory} className="text-[#30363d] hover:text-[#484f58] transition-colors cursor-pointer" aria-label="Clear terminal" title="Clear">
+          <button
+            onClick={clearTerminalHistory}
+            className="cursor-pointer transition-colors"
+            style={{ color: colors.text.disabled }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.text.dim}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.text.disabled}
+            aria-label="Clear terminal"
+            title="Clear"
+          >
             <Trash2 size={12} />
           </button>
-          <button className="text-[#30363d] hover:text-[#484f58] transition-colors cursor-pointer" aria-label="Terminal options">
+          <button
+            className="cursor-pointer transition-colors"
+            style={{ color: colors.text.disabled }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.text.dim}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.text.disabled}
+            aria-label="Terminal options"
+          >
             <ChevronDown size={12} />
           </button>
-          <button className="text-[#30363d] hover:text-[#484f58] transition-colors cursor-pointer" aria-label="Close terminal">
+          <button
+            className="cursor-pointer transition-colors"
+            style={{ color: colors.text.disabled }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.text.dim}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.text.disabled}
+            aria-label="Close terminal"
+          >
             <X size={12} />
           </button>
         </div>
@@ -509,42 +546,52 @@ export const TerminalPanel = memo(function TerminalPanel() {
       {/* Terminal Content */}
       <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto p-3 font-mono text-[12px] leading-5 custom-scrollbar"
+        className="flex-1 overflow-y-auto p-3 font-mono leading-5 custom-scrollbar"
+        style={{ fontSize: typography.fontSize.md }}
         onClick={() => inputRef.current?.focus()}
         role="log"
         aria-label="Terminal output"
       >
         {terminalHistory.length === 0 && (
-          <div className="text-[#30363d]">
-            <div>AICodeStudio Terminal v2.0.0 ({isPtyConnected ? 'Real PTY' : 'Virtual'})</div>
+          <div style={{ color: colors.text.disabled }}>
+            <div>AICodeStudio Terminal {APP_VERSION_DISPLAY} ({isPtyConnected ? 'Real PTY' : 'Virtual Shell'})</div>
             <div>Type &quot;help&quot; for available commands</div>
             {!isPtyConnected && ptyMode === 'virtual' && (
-              <div className="text-[#30363d] mt-1">
+              <div className="mt-1" style={{ color: colors.text.dim }}>
                 Set AICODE_ENABLE_TERMINAL=true with node-pty for a real terminal
               </div>
             )}
             <div></div>
           </div>
         )}
-        {terminalHistory.map((line, i) => (
-          <div key={i} className={
-            line.startsWith('$')
-              ? 'text-[#e6edf3]'
-              : line.startsWith('  ')
-                ? 'text-[#484f58]'
-                : 'text-[#6e7681]'
-          }>
-            {line || '\u00A0'}
-          </div>
-        ))}
+        {terminalHistory.map((line, i) => {
+          // Visual states for terminal lines
+          const isError = line.includes('command not found') || line.includes('No such file') || line.includes('missing') || line.includes('[PTY Error]')
+          const isSuccess = line.includes('Created') || line.includes('Changed to') || line.includes('Removed') || line.includes('Renamed')
+          const lineColor = line.startsWith('$')
+            ? colors.text.primary
+            : isError
+              ? colors.danger.DEFAULT
+              : isSuccess
+                ? colors.success.DEFAULT
+                : line.startsWith('  ')
+                  ? colors.text.dim
+                  : colors.text.muted
+          return (
+            <div key={i} style={{ color: lineColor }}>
+              {line || '\u00A0'}
+            </div>
+          )
+        })}
         <form onSubmit={handleSubmit} className="flex items-center">
-          <span className="text-[#00d4aa] mr-2" aria-hidden="true">{isPtyConnected ? '❯' : '$'}</span>
+          <span style={{ color: colors.accent.DEFAULT, marginRight: '8px' }} aria-hidden="true">{isPtyConnected ? '\u276F' : '$'}</span>
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent text-[#e6edf3] outline-none caret-[#00d4aa]"
+            className="flex-1 bg-transparent outline-none"
+            style={{ color: colors.text.primary, caretColor: colors.accent.DEFAULT }}
             spellCheck={false}
             autoComplete="off"
             aria-label="Terminal input"

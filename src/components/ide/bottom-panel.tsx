@@ -3,7 +3,12 @@
 import { memo } from 'react'
 import { useIDEStore } from '@/store/ide-store'
 import { TerminalPanel } from './terminal-panel'
-import { Terminal, AlertCircle, FileOutput, Bug, Trash2 } from 'lucide-react'
+import {
+  Terminal, AlertCircle, FileOutput, Bug, Trash2,
+  Bot, Wrench, ShieldCheck, FileQuestion, Circle, GitBranch, AlertTriangle,
+} from 'lucide-react'
+import { colors, typography, radius } from '@/components/hud/tokens'
+import { HUDBadge } from '@/components/hud/hud-primitives'
 
 export const BottomPanel = memo(function BottomPanel() {
   const activeBottomPanel = useIDEStore((s) => s.activeBottomPanel)
@@ -14,16 +19,27 @@ export const BottomPanel = memo(function BottomPanel() {
   const openTabs = useIDEStore((s) => s.openTabs)
   const gitUnstaged = useIDEStore((s) => s.gitUnstaged)
   const gitStaged = useIDEStore((s) => s.gitStaged)
+  const chatMessages = useIDEStore((s) => s.chatMessages)
+  const lspDiagnostics = useIDEStore((s) => s.lspDiagnostics)
 
   const tabs = [
     { id: 'terminal' as const, label: 'Terminal', icon: Terminal },
     { id: 'output' as const, label: 'Output', icon: FileOutput },
     { id: 'problems' as const, label: 'Problems', icon: AlertCircle },
     { id: 'debug' as const, label: 'Debug', icon: Bug },
+    { id: 'agentlogs' as const, label: 'Agent Logs', icon: Bot },
+    { id: 'toolcalls' as const, label: 'Tool Calls', icon: Wrench },
+    { id: 'approvals' as const, label: 'Approvals', icon: ShieldCheck },
   ]
 
-  // Count problems: modified but unsaved files
-  const problemCount = openTabs.filter((t) => t.isModified).length
+  // Properly categorized problems count
+  const diagnosticCount = Object.values(lspDiagnostics).reduce(
+    (sum, diags) => sum + diags.filter(d => d.severity === 'error' || d.severity === 'warning').length, 0
+  )
+  const problemCount = diagnosticCount
+
+  // Unsaved changes (not problems!)
+  const unsavedCount = openTabs.filter((t) => t.isModified).length
 
   // Format timestamp
   const formatTime = (ts: number) => {
@@ -31,37 +47,54 @@ export const BottomPanel = memo(function BottomPanel() {
     return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
+  const activeTabStyle = {
+    color: colors.text.primary,
+    borderBottom: `2px solid ${colors.accent.DEFAULT}`,
+  }
+  const inactiveTabStyle = {
+    color: colors.text.disabled,
+    borderBottom: '2px solid transparent',
+  }
+
   return (
     <div
-      className="bg-[#0a0e14] flex flex-col shrink-0"
-      style={{ height: bottomPanelHeight }}
+      className="flex flex-col shrink-0"
+      style={{ height: bottomPanelHeight, background: colors.bg.surface }}
       role="tabpanel"
       aria-label="Bottom panel"
     >
       {/* Panel Tabs */}
-      <div className="flex items-center gap-0 bg-[#050810] border-b border-[rgba(0,212,170,0.08)] shrink-0" role="tablist" aria-label="Bottom panel tabs">
+      <div
+        className="flex items-center gap-0 shrink-0"
+        style={{
+          background: colors.bg.base,
+          borderBottom: `1px solid ${colors.border.default}`,
+        }}
+        role="tablist"
+        aria-label="Bottom panel tabs"
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon
-          const badge = tab.id === 'problems' && problemCount > 0 ? problemCount : 0
+          const isActive = activeBottomPanel === tab.id
+          const badgeCount = tab.id === 'problems' && problemCount > 0 ? problemCount : 0
           return (
             <button
               key={tab.id}
               onClick={() => setActiveBottomPanel(tab.id)}
               role="tab"
-              aria-selected={activeBottomPanel === tab.id}
-              className={`
-                flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono transition-colors cursor-pointer
-                border-b-[2px]
-                ${activeBottomPanel === tab.id
-                  ? 'text-[#e6edf3] border-b-[#00d4aa]'
-                  : 'text-[#30363d] border-b-transparent hover:text-[#6e7681]'
-                }
-              `}
+              aria-selected={isActive}
+              className="flex items-center gap-1.5 px-3 py-1 font-mono transition-colors cursor-pointer"
+              style={{
+                fontSize: typography.fontSize.base,
+                ...(isActive ? activeTabStyle : inactiveTabStyle),
+              }}
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = colors.text.muted }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = colors.text.disabled }}
             >
               <Icon size={12} />
               {tab.label}
-              {badge > 0 && (
-                <span className="ml-0.5 px-1 py-0 text-[9px] bg-[#ffa657]/20 text-[#ffa657] rounded-full">{badge}</span>
+              {badgeCount > 0 && (
+                <HUDBadge variant="warning" size="sm">{badgeCount}</HUDBadge>
               )}
             </button>
           )
@@ -73,33 +106,47 @@ export const BottomPanel = memo(function BottomPanel() {
         {activeBottomPanel === 'terminal' && <TerminalPanel />}
         {activeBottomPanel === 'output' && (
           <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between px-3 py-1 bg-[#050810] border-b border-[rgba(0,212,170,0.06)]">
-              <span className="text-[10px] text-[#30363d] font-mono">Output Channel</span>
+            <div
+              className="flex items-center justify-between px-3 py-1 shrink-0"
+              style={{ background: colors.bg.base, borderBottom: `1px solid ${colors.border.muted}` }}
+            >
+              <span className="font-mono" style={{ fontSize: typography.fontSize.sm, color: colors.text.disabled }}>
+                Output Channel
+              </span>
               {outputLog.length > 0 && (
                 <button
                   onClick={clearOutputLog}
-                  className="text-[#30363d] hover:text-[#484f58] cursor-pointer"
+                  className="cursor-pointer transition-colors"
+                  style={{ color: colors.text.disabled }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = colors.text.dim}
+                  onMouseLeave={(e) => e.currentTarget.style.color = colors.text.disabled}
                   title="Clear output"
                 >
                   <Trash2 size={10} />
                 </button>
               )}
             </div>
-            <div className="flex-1 p-3 font-mono text-[12px] text-[#30363d] overflow-y-auto custom-scrollbar" role="log">
+            <div
+              className="flex-1 p-3 font-mono overflow-y-auto custom-scrollbar"
+              style={{ fontSize: typography.fontSize.md, color: colors.text.disabled }}
+              role="log"
+            >
               {outputLog.length === 0 ? (
-                <div className="text-center py-4 text-[#30363d]">
+                <div className="text-center py-4">
                   <p>No output yet</p>
-                  <p className="text-[10px] mt-1">Output from file operations, extensions, and AI will appear here</p>
+                  <p className="mt-1" style={{ fontSize: typography.fontSize.sm }}>
+                    Output from file operations, extensions, and AI will appear here
+                  </p>
                 </div>
               ) : (
                 outputLog.map((entry, i) => (
-                  <div key={i} className={
-                    entry.level === 'error' ? 'text-[#f85149]' :
-                    entry.level === 'warn' ? 'text-[#ffa657]' :
-                    'text-[#484f58]'
-                  }>
-                    <span className="text-[#30363d]">[{formatTime(entry.timestamp)}]</span>{' '}
-                    <span className="text-[#00d4aa]/50">[{entry.source}]</span>{' '}
+                  <div key={i} style={{
+                    color: entry.level === 'error' ? colors.danger.DEFAULT
+                      : entry.level === 'warn' ? colors.warning.DEFAULT
+                      : colors.text.dim,
+                  }}>
+                    <span style={{ color: colors.text.disabled }}>[{formatTime(entry.timestamp)}]</span>{' '}
+                    <span style={{ color: `${colors.accent.DEFAULT}80` }}>[{entry.source}]</span>{' '}
                     {entry.message}
                   </div>
                 ))
@@ -108,35 +155,160 @@ export const BottomPanel = memo(function BottomPanel() {
           </div>
         )}
         {activeBottomPanel === 'problems' && (
-          <div className="h-full p-3 font-mono text-[12px] overflow-y-auto custom-scrollbar" role="status">
-            {problemCount === 0 && gitUnstaged.length === 0 && gitStaged.length === 0 ? (
-              <div className="text-[#3fb950] flex items-center gap-2">
-                <AlertCircle size={14} />
-                No problems detected in workspace
+          <div className="h-full p-3 font-mono overflow-y-auto custom-scrollbar" style={{ fontSize: typography.fontSize.md }} role="status">
+            {/* Diagnostics Section */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 mb-1" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>
+                <AlertCircle size={10} />
+                <span className="uppercase tracking-wider font-semibold">Diagnostics</span>
               </div>
-            ) : (
-              <div className="space-y-1">
+              {diagnosticCount === 0 ? (
+                <div className="flex items-center gap-2" style={{ color: colors.success.DEFAULT, fontSize: typography.fontSize.md }}>
+                  <Circle size={8} fill="currentColor" />
+                  No diagnostics
+                </div>
+              ) : (
+                Object.entries(lspDiagnostics).map(([filePath, diags]) =>
+                  diags.filter(d => d.severity === 'error' || d.severity === 'warning').map((d, i) => (
+                    <div key={`${filePath}-${i}`} className="flex items-center gap-2 py-0.5" style={{
+                      color: d.severity === 'error' ? colors.danger.DEFAULT : colors.warning.DEFAULT,
+                    }}>
+                      <AlertCircle size={11} />
+                      <span>{filePath}:{d.line}</span>
+                      <span style={{ color: colors.text.dim }}>{d.message}</span>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+
+            {/* Unsaved Changes Section */}
+            {unsavedCount > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 mb-1" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>
+                  <FileQuestion size={10} />
+                  <span className="uppercase tracking-wider font-semibold">Unsaved Changes</span>
+                </div>
                 {openTabs.filter((t) => t.isModified).map((tab) => (
-                  <div key={tab.id} className="flex items-center gap-2 text-[#ffa657]">
-                    <AlertCircle size={12} />
+                  <div key={tab.id} className="flex items-center gap-2 py-0.5" style={{ color: colors.warning.DEFAULT }}>
+                    <AlertTriangle size={11} />
                     <span>{tab.name}</span>
-                    <span className="text-[#30363d]">— unsaved changes</span>
+                    <span style={{ color: colors.text.disabled }}>— unsaved</span>
                   </div>
                 ))}
-                {gitUnstaged.length > 0 && (
-                  <div className="flex items-center gap-2 text-[#ffa657]">
-                    <AlertCircle size={12} />
-                    <span>{gitUnstaged.length} unstaged file change{gitUnstaged.length > 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            {/* Git Changes Section */}
+            {(gitUnstaged.length > 0 || gitStaged.length > 0) && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 mb-1" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>
+                  <GitBranch size={10} />
+                  <span className="uppercase tracking-wider font-semibold">Git Changes</span>
+                </div>
+                {gitStaged.length > 0 && (
+                  <div className="flex items-center gap-2 py-0.5" style={{ color: colors.success.DEFAULT }}>
+                    <Circle size={6} fill="currentColor" />
+                    <span>{gitStaged.length} staged file{gitStaged.length > 1 ? 's' : ''}</span>
                   </div>
                 )}
+                {gitUnstaged.length > 0 && (
+                  <div className="flex items-center gap-2 py-0.5" style={{ color: colors.warning.DEFAULT }}>
+                    <AlertTriangle size={11} />
+                    <span>{gitUnstaged.length} unstaged file{gitUnstaged.length > 1 ? 's' : ''}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Runtime Errors Section */}
+            {outputLog.filter(e => e.level === 'error').length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center gap-1.5 mb-1" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>
+                  <AlertCircle size={10} />
+                  <span className="uppercase tracking-wider font-semibold">Runtime Errors</span>
+                </div>
+                {outputLog.filter(e => e.level === 'error').slice(-5).map((entry, i) => (
+                  <div key={i} className="flex items-center gap-2 py-0.5" style={{ color: colors.danger.DEFAULT }}>
+                    <AlertCircle size={11} />
+                    <span style={{ color: colors.text.disabled }}>[{entry.source}]</span>
+                    <span>{entry.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Clean state */}
+            {diagnosticCount === 0 && unsavedCount === 0 && gitUnstaged.length === 0 && gitStaged.length === 0 && (
+              <div className="flex items-center gap-2" style={{ color: colors.success.DEFAULT }}>
+                <AlertCircle size={14} />
+                No problems detected in workspace
               </div>
             )}
           </div>
         )}
         {activeBottomPanel === 'debug' && (
-          <div className="h-full p-3 font-mono text-[12px] text-[#30363d]">
+          <div className="h-full p-3 font-mono" style={{ fontSize: typography.fontSize.md, color: colors.text.disabled }}>
             <div>No active debug session</div>
-            <div className="mt-2 text-[11px]">Press F5 to start debugging</div>
+            <div className="mt-2" style={{ fontSize: typography.fontSize.base }}>Press F5 to start debugging</div>
+          </div>
+        )}
+        {activeBottomPanel === 'agentlogs' && (
+          <div className="h-full p-3 font-mono overflow-y-auto custom-scrollbar" style={{ fontSize: typography.fontSize.md }}>
+            {chatMessages.length === 0 ? (
+              <div style={{ color: colors.text.disabled }}>
+                <p>No agent activity yet</p>
+                <p className="mt-1" style={{ fontSize: typography.fontSize.sm }}>
+                  Agent interactions will be logged here
+                </p>
+              </div>
+            ) : (
+              chatMessages.slice(-20).map((msg) => (
+                <div key={msg.id} className="flex items-start gap-2 py-0.5">
+                  <span style={{
+                    color: msg.role === 'user' ? colors.accent.DEFAULT : colors.text.muted,
+                    fontSize: typography.fontSize.sm,
+                    minWidth: '14px',
+                  }}>
+                    {msg.role === 'user' ? '>' : '<'}
+                  </span>
+                  <span style={{
+                    color: msg.role === 'user' ? colors.text.secondary : colors.text.dim,
+                    maxWidth: '90%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {msg.content.slice(0, 120)}
+                  </span>
+                  <span style={{ color: colors.text.disabled, fontSize: typography.fontSize.xs, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                    {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        {activeBottomPanel === 'toolcalls' && (
+          <div className="h-full p-3 font-mono" style={{ fontSize: typography.fontSize.md, color: colors.text.disabled }}>
+            <div className="flex items-center gap-2">
+              <Wrench size={14} />
+              No tool calls recorded
+            </div>
+            <p className="mt-1" style={{ fontSize: typography.fontSize.sm }}>
+              Tool calls from AI agents will appear here when available
+            </p>
+          </div>
+        )}
+        {activeBottomPanel === 'approvals' && (
+          <div className="h-full p-3 font-mono" style={{ fontSize: typography.fontSize.md, color: colors.text.disabled }}>
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={14} />
+              No pending approvals
+            </div>
+            <p className="mt-1" style={{ fontSize: typography.fontSize.sm }}>
+              Approval requests from AI agents will appear here when available
+            </p>
           </div>
         )}
       </div>

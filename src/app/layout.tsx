@@ -23,9 +23,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://smouj.github.io/AICodeStudio"),
   title: "AICodeStudio — AI-Powered IDE",
-  description: "Next-generation open-source AI-powered IDE with OpenClaw & Hermes integration, GitHub connectivity, Monaco Editor, and PWA desktop installation. Code smarter, faster, with AI by your side.",
+  description: "AI-native workspace for code agents. Open-source IDE with real AI provider integration, Monaco Editor, GitHub, Docker, database tools, and PWA desktop installation.",
   keywords: [
-    "AICodeStudio", "IDE", "AI", "OpenClaw", "Hermes", "GitHub", "Monaco Editor",
+    "AICodeStudio", "IDE", "AI", "Code Agents", "GitHub", "Monaco Editor",
     "VSCode", "Open Source", "PWA", "Code Editor", "Desktop App", "Web IDE",
     "AI Code Assistant", "TypeScript", "Next.js"
   ],
@@ -45,14 +45,14 @@ export const metadata: Metadata = {
     description: "Next-generation open-source AI-powered IDE. Install as a desktop app. Code smarter with AI.",
     type: "website",
     url: "https://smouj.github.io/AICodeStudio",
-    images: [{ url: "/social-banner.svg", width: 1280, height: 640, alt: "AICodeStudio Banner" }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "AICodeStudio — AI-native workspace for code agents" }],
     siteName: "AICodeStudio",
   },
   twitter: {
     card: "summary_large_image",
     title: "AICodeStudio — AI-Powered IDE",
     description: "Next-Generation AI-Powered IDE. Open Source. Installable. AI-First.",
-    images: ["/social-banner.svg"],
+    images: ["/og-image.png"],
   },
   appleWebApp: {
     capable: true,
@@ -69,7 +69,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="AICodeStudio" />

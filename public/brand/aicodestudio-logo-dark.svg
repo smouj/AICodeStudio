@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- AICodeStudio Logo Dark — Horizontal version for dark backgrounds -->
+  <rect width="512" height="512" rx="64" fill="#050810"/>
+  <rect x="2" y="2" width="508" height="508" rx="63" stroke="rgba(0,212,170,0.08)" stroke-width="2" fill="none"/>
+  <!-- Code bracket symbol -->
+  <path d="M180 176 L110 256 L180 336" stroke="#00d4aa" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M332 176 L402 256 L332 336" stroke="#00d4aa" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="296" y1="160" x2="216" y2="352" stroke="#00d4aa" stroke-width="24" stroke-linecap="round"/>
+  <!-- Agent indicator -->
+  <circle cx="256" cy="392" r="6" fill="#00d4aa" opacity="0.4"/>
+</svg>
