@@ -24,8 +24,7 @@ export const StatusBar = memo(function StatusBar() {
   const handlePwaInstall = async () => {
     if (!pwaInstallPrompt) return
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (pwaInstallPrompt as any).prompt()
+      await (pwaInstallPrompt as { prompt: () => Promise<void> }).prompt()
     } catch {
       // User dismissed or already installed
     }

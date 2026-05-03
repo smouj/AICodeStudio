@@ -57,7 +57,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, depth }: { node: FileNod
   }, [renameValue, node, renameNode])
 
   return (
-    <div role="treeitem" aria-expanded={isFolder ? isExpanded : undefined}>
+    <div role="treeitem" aria-expanded={isFolder ? isExpanded : undefined} aria-selected={false}>
       <div
         className={`
           flex items-center gap-1 py-[3px] pr-3 cursor-pointer

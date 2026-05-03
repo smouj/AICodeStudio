@@ -1621,15 +1621,14 @@ export const useIDEStore = create<IDEState>()(
             || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
 
           if (SpeechRecognition) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const recognition = new (SpeechRecognition as any)();
+            const recognition = new (SpeechRecognition as { new (): { lang: string; continuous: boolean; interimResults: boolean; onresult: (ev: unknown) => void; onerror: () => void; onend: () => void; start: () => void } })();
             recognition.lang = state.voiceLanguage
             recognition.continuous = false
             recognition.interimResults = false
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            recognition.onresult = (event: any) => {
-              const transcript = event.results[0][0].transcript
+            recognition.onresult = (event: unknown) => {
+              const e = event as { results: { [index: number]: { transcript: string } }[] }
+              const transcript = e.results[0][0].transcript
               set({ voiceTranscript: transcript })
               get().addOutputEntry('Voice', `Recognized: ${transcript}`)
             }
@@ -1657,8 +1656,8 @@ export const useIDEStore = create<IDEState>()(
       stopListening: () => {
         set({ voiceListening: false })
         try {
-          const recognition = (window as unknown as Record<string, unknown>).__speechRecognition as // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            any | undefined
+          const recognition = (window as unknown as Record<string, unknown>).__speechRecognition as
+            { stop: () => void } | undefined
           recognition?.stop()
         } catch {
           // Ignore errors when stopping

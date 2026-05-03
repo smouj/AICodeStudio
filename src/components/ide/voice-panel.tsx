@@ -301,17 +301,17 @@ export function VoicePanel() {
           (window as unknown as Record<string, unknown>).webkitSpeechRecognition
 
         if (SpeechRecognitionAPI) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const recognition = new (SpeechRecognitionAPI as any)()
+          const recognition = new (SpeechRecognitionAPI as { new (): { lang: string; continuous: boolean; interimResults: boolean; onresult: (ev: unknown) => void; onerror: () => void; onend: () => void; start: () => void } })()
           recognition.lang = voiceLanguage
           recognition.continuous = true
           recognition.interimResults = true
 
-          recognition.onresult = (event: any) => {
+          recognition.onresult = (event: unknown) => {
+            const e = event as { resultIndex: number; results: { isFinal: boolean; [index: number]: { transcript: string } }[] }
             let interim = ''
             let final = ''
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              const result = event.results[i]
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              const result = e.results[i]
               if (result.isFinal) {
                 final += result[0].transcript
               } else {
