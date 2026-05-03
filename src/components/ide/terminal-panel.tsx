@@ -197,7 +197,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
     } else if (lower === 'date') {
       addTerminalHistory(new Date().toLocaleString())
     } else if (lower === 'version') {
-      addTerminalHistory('AICodeStudio v1.0.0 — Next-Generation AI-Powered IDE')
+      addTerminalHistory('AICodeStudio v2.0.0 — Next-Generation AI-Powered IDE')
     } else if (trimmed.startsWith('echo ')) {
       addTerminalHistory(trimmed.slice(5))
     } else if (lower === 'whoami') {
@@ -360,7 +360,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
       >
         {terminalHistory.length === 0 && (
           <div className="text-[#30363d]">
-            <div>AICodeStudio Terminal v1.0.0</div>
+            <div>AICodeStudio Terminal v2.0.0 (Virtual)</div>
             <div>Type &quot;help&quot; for available commands</div>
             <div></div>
           </div>

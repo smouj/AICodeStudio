@@ -1,38 +1,28 @@
-# AICodeStudio Worklog
+# AICodeStudio Hardening Worklog
 
----
-Task ID: 1
-Agent: Main
-Task: Complete audit, rewrite all components to remove mocks/hardcodeos/placeholders, push safely to GitHub
+## Initial Assessment (Task 0)
 
-Work Log:
-- Performed comprehensive audit of all source files identifying 17+ instances of mocks, hardcoded data, and placeholders
-- Rewrote ide-store.ts with complete virtual file system (createFile, createFolder, deleteNode, renameNode, writeFile, readFile)
-- Removed all hardcoded data: defaultFileTree, sampleFileContents, seed TODOs, fake terminal history, fake AI provider statuses
-- Added new store features: editorSettings, outputLog, gitBranch, gitStaged, gitUnstaged, searchInFiles, terminalCwd
-- Rewrote ai-chat.tsx: removed simulated responses, added user-configurable AI provider management with API key input
-- Rewrote github-panel.tsx: replaced hardcoded trending repos with real GitHub API calls, added repo search and token management
-- Rewrote terminal-panel.tsx: commands now operate on virtual FS (touch, mkdir, rm, mv, cat, cd, ls, tree)
-- Rewrote search-panel.tsx: real search through file contents with regex, case-sensitive, whole word support
-- Rewrote git-panel.tsx: real file change tracking from virtual FS, stage/unstage, commit with messages
-- Rewrote extensions-panel.tsx: real install/uninstall with state tracking and output logging
-- Created new settings-panel.tsx: real editor configuration connected to Monaco (fontSize, tabSize, minimap, etc.)
-- Updated sidebar-panel.tsx: added settings panel routing
-- Updated bottom-panel.tsx: real output log, dynamic problem count
-- Updated status-bar.tsx: dynamic file count, git branch, theme toggle connected to settings
-- Updated editor-area.tsx: auto-save to virtual FS, breadcrumb navigation, settings integration
-- Updated file-tree.tsx: inline create/rename/delete, empty workspace guidance
-- Updated command-palette.tsx: uses new store interface
-- Removed placeholder /api/route.ts
-- Updated /api/ai/route.ts: removed console.error, cleaner error handling
-- Verified no secrets/sensitive data in repository
-- Updated README.md with accurate feature descriptions
-- Build passes successfully
-- Pushed to GitHub: commit d87cc79
+### Build Status
+- **Build**: PASSES (Next.js 16.1.3 / Turbopack)
+- **Lint**: 6 warnings, 0 errors
+  - Unused eslint-disable directives (5)
+  - Missing aria-selected on treeitem (1)
 
-Stage Summary:
-- 17 files changed, 2352 insertions, 540 deletions
-- Zero mocks, zero hardcodeos, zero placeholders remaining
-- All features are real and connected
-- No sensitive data in repository
-- Repository: https://github.com/smouj/AICodeStudio
+### Critical Security Issues Found
+1. **Git API** (`/api/git`): Accepts arbitrary `workDir` from body/query, no path sandboxing
+2. **Docker API** (`/api/docker`): Falls back to `localhost:2375` (unencrypted TCP), no auth, no flag
+3. **Database API** (`/api/database`): Uses `$queryRawUnsafe`/`$executeRawUnsafe`, no write protection
+4. **AI API** (`/api/ai`): Accepts `apiKey` from client body and passes it to SDK
+5. **Zustand Persist**: Stores `aiProviders` (with apiKey), `githubToken`, `dbConnections` (with credentials) in localStorage
+
+### README vs Code Inconsistencies
+1. **Terminal**: README promises "real PTY", code is placeholder (session in-memory, no node-pty)
+2. **LSP**: Code simulates servers, diagnostics, completions, hover - not real LSP
+3. **Database**: Only SQLite works via Prisma, other DBs return placeholder
+4. **Version**: package.json = 2.0.0, UI shows "v1.0.0" in 7+ places
+
+### PWA Issues
+- `next.config.ts` uses `output: "standalone"` (needs server)
+- README links to GitHub Pages (needs `output: "export"`)
+- `manifest.json` `start_url` and `scope` are `/` (needs `/AICodeStudio` for Pages)
+- No separate build scripts for static vs server mode

@@ -198,7 +198,7 @@ export function EditorArea() {
           {/* Version badge */}
           <div className="mt-10 flex items-center justify-center gap-2">
             <div className="h-px w-8 bg-[#30363d]" aria-hidden="true" />
-            <span className="text-[10px] text-[#30363d] font-mono">v1.0.0</span>
+            <span className="text-[10px] text-[#30363d] font-mono">v2.0.0</span>
             <div className="h-px w-8 bg-[#30363d]" aria-hidden="true" />
           </div>
         </div>

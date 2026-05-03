@@ -2053,21 +2053,70 @@ export const useIDEStore = create<IDEState>()(
     }),
 
     // ─── Persist Middleware Configuration ───────────────────
+    // SECURITY: We do NOT persist API keys, tokens, or credentials.
+    // Only preferences, layout, theme, and non-sensitive data are stored.
     {
       name: 'aicodestudio-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         editorSettings: state.editorSettings,
-        aiProviders: state.aiProviders,
+        // aiProviders are persisted WITHOUT apiKey/endpoint (stripped below)
+        aiProviders: state.aiProviders.map((p) => ({
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          model: p.model,
+          // apiKey and endpoint are intentionally NOT persisted
+          error: p.error,
+        })),
         activeAiProvider: state.activeAiProvider,
-        githubToken: state.githubToken,
+        // githubToken is intentionally NOT persisted
         installedExtensions: state.installedExtensions,
         installedThemes: state.installedThemes,
         activeThemeId: state.activeThemeId,
-        dbConnections: state.dbConnections,
+        // dbConnections are persisted WITHOUT credentials
+        dbConnections: state.dbConnections.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          host: c.host,
+          port: c.port,
+          database: c.database,
+          connected: false, // Always start disconnected
+          // username and ssl are intentionally NOT persisted
+        })),
         todos: state.todos,
         workspaceName: state.workspaceName,
       }),
+      // Migration: remove any previously persisted secrets
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version === 0) {
+          // v0 persisted apiKey, githubToken, and db usernames — clear them
+          const state = { ...(persistedState as Record<string, unknown>) }
+          if (Array.isArray(state.aiProviders)) {
+            state.aiProviders = (state.aiProviders as Array<Record<string, unknown>>).map(
+              (p) => {
+                const { apiKey, endpoint, ...rest } = p
+                return rest
+              }
+            )
+          }
+          if (state.githubToken) {
+            delete state.githubToken
+          }
+          if (Array.isArray(state.dbConnections)) {
+            state.dbConnections = (state.dbConnections as Array<Record<string, unknown>>).map(
+              (c) => {
+                const { username, password, ...rest } = c
+                return { ...rest, connected: false }
+              }
+            )
+          }
+          return state
+        }
+        return persistedState
+      },
       // Skip hydration mismatch on SSR
       skipHydration: true,
     }
