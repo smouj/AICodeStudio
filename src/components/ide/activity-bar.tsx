@@ -17,6 +17,7 @@ import {
   Mic,
   Palette,
   LayoutGrid,
+  PenTool,
 } from 'lucide-react'
 import { useIDEStore, type SidebarPanel } from '@/store/ide-store'
 
@@ -35,6 +36,7 @@ const activityItems: { id: SidebarPanel; icon: typeof Files; label: string }[] =
   { id: 'voice', icon: Mic, label: 'Voice-to-Code' },
   { id: 'themes', icon: Palette, label: 'Themes' },
   { id: 'canvas', icon: LayoutGrid, label: 'Canvas Navigation' },
+  { id: 'whiteboard', icon: PenTool, label: 'Whiteboard' },
 ]
 
 export const ActivityBar = memo(function ActivityBar() {

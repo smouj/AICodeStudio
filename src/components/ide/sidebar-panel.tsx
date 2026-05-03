@@ -16,6 +16,7 @@ import { LSPPanel } from './lsp-panel'
 import { VoicePanel } from './voice-panel'
 import { ThemesPanel } from './themes-panel'
 import { CanvasNavigation } from './canvas-navigation'
+import { WhiteboardPanel } from './whiteboard-panel'
 
 export function SidebarPanel() {
   const { activeSidebarPanel, sidebarVisible, sidebarWidth } = useIDEStore()
@@ -42,6 +43,7 @@ export function SidebarPanel() {
       {activeSidebarPanel === 'voice' && <VoicePanel />}
       {activeSidebarPanel === 'themes' && <ThemesPanel />}
       {activeSidebarPanel === 'canvas' && <CanvasNavigation />}
+      {activeSidebarPanel === 'whiteboard' && <WhiteboardPanel />}
     </div>
   )
 }
