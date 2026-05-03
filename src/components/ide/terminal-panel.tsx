@@ -1,20 +1,154 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { Terminal, X, Plus, ChevronDown, Trash2 } from 'lucide-react'
+import { Terminal, X, Plus, ChevronDown, Trash2, Wifi, WifiOff } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
+
+// ─── WebSocket PTY Connection ───────────────────────────────────────────────
+
+interface PtyConnection {
+  ws: WebSocket | null
+  sessionId: string | null
+  connected: boolean
+}
+
+function usePtyConnection() {
+  const [connection, setConnection] = useState<PtyConnection>({ ws: null, sessionId: null, connected: false })
+  const addTerminalHistory = useIDEStore((s) => s.addTerminalHistory)
+  const wsRef = useRef<WebSocket | null>(null)
+
+  const connect = useCallback(async () => {
+    try {
+      // Create a session via the API
+      const res = await fetch('/api/terminal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shell: '/bin/bash' }),
+      })
+
+      if (!res.ok) {
+        addTerminalHistory('  [PTY] Failed to create session')
+        return
+      }
+
+      const data = await res.json()
+      const wsUrl = data.session?.websocketUrl
+
+      if (!wsUrl) {
+        addTerminalHistory('  [PTY] No WebSocket URL — virtual mode only')
+        return
+      }
+
+      const ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        setConnection({ ws, sessionId: data.session.id, connected: true })
+        wsRef.current = ws
+        addTerminalHistory('  [PTY] Connected to real terminal')
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.type === 'output') {
+            // Split output by newlines for display
+            msg.data.split('\n').forEach((line: string) => {
+              addTerminalHistory(line)
+            })
+          } else if (msg.type === 'exit') {
+            addTerminalHistory(`  [PTY] Process exited with code ${msg.code}`)
+            setConnection({ ws: null, sessionId: null, connected: false })
+            wsRef.current = null
+          } else if (msg.type === 'session') {
+            addTerminalHistory(`  [PTY] Session ${msg.id} (pid: ${msg.pid})`)
+          } else if (msg.type === 'error') {
+            addTerminalHistory(`  [PTY Error] ${msg.data}`)
+          }
+        } catch {
+          // Ignore malformed messages
+        }
+      }
+
+      ws.onclose = () => {
+        setConnection({ ws: null, sessionId: null, connected: false })
+        wsRef.current = null
+        addTerminalHistory('  [PTY] Disconnected')
+      }
+
+      ws.onerror = () => {
+        addTerminalHistory('  [PTY] Connection error — falling back to virtual terminal')
+        setConnection({ ws: null, sessionId: null, connected: false })
+        wsRef.current = null
+      }
+    } catch (err) {
+      addTerminalHistory(`  [PTY] Connection failed: ${(err as Error).message}`)
+    }
+  }, [addTerminalHistory])
+
+  const sendInput = useCallback((data: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'input', data }))
+      return true
+    }
+    return false
+  }, [])
+
+  const resize = useCallback((cols: number, rows: number) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }))
+    }
+  }, [])
+
+  const disconnect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+      setConnection({ ws: null, sessionId: null, connected: false })
+    }
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
+
+  return { connection, connect, sendInput, resize, disconnect }
+}
+
+// ─── Terminal Panel ─────────────────────────────────────────────────────────
 
 export const TerminalPanel = memo(function TerminalPanel() {
   const terminalHistory = useIDEStore((s) => s.terminalHistory)
   const addTerminalHistory = useIDEStore((s) => s.addTerminalHistory)
   const clearTerminalHistory = useIDEStore((s) => s.clearTerminalHistory)
   const bottomPanelVisible = useIDEStore((s) => s.bottomPanelVisible)
+  const terminalCwd = useIDEStore((s) => s.terminalCwd)
 
   const [input, setInput] = useState('')
+  const [ptyMode, setPtyMode] = useState<'virtual' | 'real'>('virtual')
   const terminalRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const commandHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef(-1)
+  const pty = usePtyConnection()
+
+  // Check terminal capabilities on mount
+  useEffect(() => {
+    fetch('/api/capabilities')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.capabilities?.terminal?.enabled) {
+          setPtyMode('real')
+        }
+      })
+      .catch(() => {
+        // Default to virtual
+      })
+  }, [])
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -28,12 +162,18 @@ export const TerminalPanel = memo(function TerminalPanel() {
     }
   }, [bottomPanelVisible])
 
+  // Auto-connect to PTY when in real mode
+  useEffect(() => {
+    if (ptyMode === 'real' && !pty.connection.connected && !pty.connection.ws) {
+      pty.connect()
+    }
+  }, [ptyMode, pty])
+
   // Helper: list files in a directory from the virtual FS
   const listDirectory = useCallback((dirPath: string): string[] => {
     const state = useIDEStore.getState()
     const results: string[] = []
 
-    // Find directory node in tree
     const findChildren = (nodes: typeof state.fileTree, target: string): typeof state.fileTree | null => {
       for (const node of nodes) {
         if (node.path === target && node.type === 'folder') return node.children || []
@@ -52,7 +192,6 @@ export const TerminalPanel = memo(function TerminalPanel() {
       })
     }
 
-    // Also check fileContents for direct paths
     Object.keys(state.fileContents).forEach((path) => {
       const parent = path.substring(0, path.lastIndexOf('/'))
       if (parent === dirPath) {
@@ -73,6 +212,13 @@ export const TerminalPanel = memo(function TerminalPanel() {
     const cwd = state.terminalCwd
 
     addTerminalHistory(`$ ${cmd}`)
+
+    // If real PTY is connected, send input directly
+    if (pty.connection.connected && pty.sendInput(trimmed + '\n')) {
+      return
+    }
+
+    // ── Virtual terminal fallback ──
 
     if (lower === 'help') {
       addTerminalHistory('Available commands:')
@@ -123,7 +269,6 @@ export const TerminalPanel = memo(function TerminalPanel() {
         addTerminalHistory(`  Changed to ${newPath || '/'}`)
       } else {
         const newPath = target.startsWith('/') ? target : `${cwd === '/' ? '' : cwd}/${target}`
-        // Verify the directory exists
         const items = listDirectory(newPath)
         const exists = state.fileTree.some((n) => n.path === newPath && n.type === 'folder') ||
           Object.keys(state.fileContents).some((p) => p.startsWith(newPath + '/'))
@@ -273,12 +418,13 @@ export const TerminalPanel = memo(function TerminalPanel() {
       })
     } else if (lower === 'neofetch') {
       addTerminalHistory('  ┌──────────────────────────────┐')
-      addTerminalHistory('  │  AICodeStudio v1.0           │')
+      addTerminalHistory('  │  AICodeStudio v2.0.0         │')
       addTerminalHistory('  │  Next.js 16 + React 19       │')
       addTerminalHistory('  │  Monaco Editor               │')
-      addTerminalHistory(`  │  Files: ${Object.keys(state.fileContents).length}                  │`)
-      addTerminalHistory(`  │  Providers: ${state.aiProviders.filter(p => p.status === 'connected').length} connected         │`)
-      addTerminalHistory(`  │  TODOs: ${state.todos.filter(t => !t.completed).length} pending             │`)
+      addTerminalHistory(`  │  Files: ${Object.keys(state.fileContents).length}                    │`)
+      addTerminalHistory(`  │  Providers: ${state.aiProviders.filter(p => p.status === 'connected').length} connected           │`)
+      addTerminalHistory(`  │  TODOs: ${state.todos.filter(t => !t.completed).length} pending               │`)
+      addTerminalHistory(`  │  PTY: ${pty.connection.connected ? 'real' : 'virtual'}                    │`)
       addTerminalHistory('  │  PWA Ready                   │')
       addTerminalHistory('  └──────────────────────────────┘')
     } else if (trimmed === '') {
@@ -294,7 +440,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
       commandHistoryRef.current = [...commandHistoryRef.current, trimmed].slice(-50)
       historyIndexRef.current = -1
     }
-  }, [addTerminalHistory, clearTerminalHistory, listDirectory])
+  }, [addTerminalHistory, clearTerminalHistory, listDirectory, pty])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -324,6 +470,8 @@ export const TerminalPanel = memo(function TerminalPanel() {
     }
   }
 
+  const isPtyConnected = pty.connection.connected
+
   return (
     <div className="h-full flex flex-col bg-[#0a0e14]" role="region" aria-label="Terminal">
       {/* Terminal Header */}
@@ -333,6 +481,14 @@ export const TerminalPanel = memo(function TerminalPanel() {
             <Terminal size={11} />
             bash
           </button>
+          {isPtyConnected ? (
+            <Wifi size={10} className="text-[#00d4aa]" aria-label="Real PTY connected" />
+          ) : (
+            <WifiOff size={10} className="text-[#30363d]" aria-label="Virtual terminal (no PTY)" />
+          )}
+          <span className="text-[9px] font-mono text-[#30363d]">
+            {isPtyConnected ? 'PTY' : 'virtual'}
+          </span>
           <button className="text-[#30363d] hover:text-[#484f58] transition-colors ml-1 cursor-pointer" aria-label="New terminal">
             <Plus size={12} />
           </button>
@@ -360,8 +516,13 @@ export const TerminalPanel = memo(function TerminalPanel() {
       >
         {terminalHistory.length === 0 && (
           <div className="text-[#30363d]">
-            <div>AICodeStudio Terminal v2.0.0 (Virtual)</div>
+            <div>AICodeStudio Terminal v2.0.0 ({isPtyConnected ? 'Real PTY' : 'Virtual'})</div>
             <div>Type &quot;help&quot; for available commands</div>
+            {!isPtyConnected && ptyMode === 'virtual' && (
+              <div className="text-[#30363d] mt-1">
+                Set AICODE_ENABLE_TERMINAL=true with node-pty for a real terminal
+              </div>
+            )}
             <div></div>
           </div>
         )}
@@ -377,7 +538,7 @@ export const TerminalPanel = memo(function TerminalPanel() {
           </div>
         ))}
         <form onSubmit={handleSubmit} className="flex items-center">
-          <span className="text-[#00d4aa] mr-2" aria-hidden="true">$</span>
+          <span className="text-[#00d4aa] mr-2" aria-hidden="true">{isPtyConnected ? '❯' : '$'}</span>
           <input
             ref={inputRef}
             value={input}
