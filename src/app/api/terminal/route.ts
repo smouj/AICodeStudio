@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
+
+// ---------------------------------------------------------------------------
+// Terminal Sessions API
+//
+// STATUS: This is a VIRTUAL TERMINAL — session metadata is tracked in-memory
+// but no real PTY process is spawned. A real PTY requires:
+//   - AICODE_ENABLE_TERMINAL=true
+//   - A Node.js server (not static export)
+//   - node-pty installed
+//   - A WebSocket server for I/O
+//
+// When AICODE_ENABLE_TERMINAL is not set, the API returns simulated status
+// so the UI can display appropriate messaging.
+// ---------------------------------------------------------------------------
+
+function isTerminalEnabled(): boolean {
+  return process.env.AICODE_ENABLE_TERMINAL === 'true';
+}
 
 // In-memory store for active PTY sessions
 const sessions = new Map<string, TerminalSession>();
@@ -13,20 +32,27 @@ interface TerminalSession {
   pid?: number;
 }
 
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const postBodySchema = z.object({
+  shell: z.string().default('/bin/bash'),
+  cwd: z.string().optional(),
+  cols: z.number().int().min(10).max(300).default(80),
+  rows: z.number().int().min(5).max(100).default(24),
+});
+
 /**
  * POST /api/terminal
- * Create a new PTY session.
- * In a real implementation, this would spawn a node-pty process on a dedicated
- * WebSocket server. Here we return session info so the client can connect
- * through a WebSocket mini-service.
+ * Create a new terminal session.
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const shell = body.shell || '/bin/bash';
-    const cwd = body.cwd || process.env.HOME || '/tmp';
-    const cols = body.cols || 80;
-    const rows = body.rows || 24;
+    const rawBody = await req.json().catch(() => ({}));
+    const body = postBodySchema.parse(rawBody);
+    const shell = body.shell;
+    const cwd = body.cwd || process.env.WORKSPACE_DIR || process.env.HOME || '/tmp';
+    const cols = body.cols;
+    const rows = body.rows;
 
     const sessionId = randomUUID();
 
@@ -40,6 +66,8 @@ export async function POST(req: NextRequest) {
 
     sessions.set(sessionId, session);
 
+    const isReal = isTerminalEnabled();
+
     return NextResponse.json({
       success: true,
       session: {
@@ -50,14 +78,21 @@ export async function POST(req: NextRequest) {
         rows,
         status: session.status,
         createdAt: session.createdAt,
-        // The client should connect to the WebSocket mini-service for I/O
-        websocketUrl: `/?XTransformPort=3003&session=${sessionId}`,
+        mode: isReal ? 'real-pty' : 'virtual',
+        websocketUrl: isReal ? `/?XTransformPort=3003&session=${sessionId}` : null,
       },
-      message:
-        'PTY session created. Connect to the WebSocket endpoint for I/O. ' +
-        'A real PTY requires a Node.js server with node-pty — this is a placeholder.',
+      message: isReal
+        ? 'PTY session created. Connect to the WebSocket endpoint for I/O.'
+        : 'Virtual terminal session created. This is a simulated terminal — no real PTY is attached. ' +
+          'Set AICODE_ENABLE_TERMINAL=true with a running Node.js server and node-pty to enable a real terminal.',
     });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Failed to create terminal session: ${message}` },
@@ -86,6 +121,7 @@ export async function GET() {
       success: true,
       sessions: activeSessions,
       total: activeSessions.length,
+      mode: isTerminalEnabled() ? 'real-pty' : 'virtual',
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

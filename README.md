@@ -13,7 +13,7 @@
 [![PWA](https://img.shields.io/badge/PWA-Ready-00d4aa.svg?style=flat-square)](https://web.dev/progressive-web-apps/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-00d4aa.svg?style=flat-square)](CONTRIBUTING.md)
 
-*A free, open-source, AI-first code editor that runs in your browser. Install it as a desktop app like VSCode — no Electron required. Zero mocks, zero placeholders — everything is real and connected.*
+*A free, open-source, AI-first code editor that runs in your browser. Install it as a desktop app like VSCode — no Electron required.*
 
 [🌐 Live Demo](https://smouj.github.io/AICodeStudio) · [📥 Install](#-installation) · [✨ Features](#-features) · [🚀 Quick Start](#-quick-start) · [🤝 Contributing](#-contributing)
 
@@ -28,7 +28,7 @@
 ## ✨ Features
 
 ### 🤖 AI-Powered Development
-- **User-Configurable AI Providers** — Add any AI provider with your own API key; your credentials stay in your browser and are never sent to our servers
+- **User-Configurable AI Providers** — Add any AI provider with your own API key; keys are sent only to your AICodeStudio instance and are not persisted by default
 - **Real AI Chat** — Direct API integration with real AI models through configurable endpoints; no simulated responses or canned fallbacks
 - **Connection Testing** — Test your AI provider connection before saving to verify everything works
 - **Quick Actions** — One-click AI actions: Explain Code, Find Bugs, Optimize Performance
@@ -56,24 +56,22 @@
 
 ### 🐳 Docker Container Management
 - **Container Operations** — Start, stop, restart, and remove Docker containers directly from the IDE
-- **Container Logs** — View real-time container logs, environment variables, and port mappings
-- **Image Management** — Pull, run, and remove Docker images with progress indicators
-- **Auto-Refresh** — Container and image lists refresh automatically every 15 seconds
-- **Status Filtering** — Filter containers by running, stopped, or all states
+- **Image Management** — Pull and list Docker images
+- **Security-First** — Docker is disabled by default; requires `AICODE_ENABLE_DOCKER=true` and `DOCKER_HOST` to be explicitly set
+- **Status Indicators** — Clear UI indication when Docker is unavailable or disabled
 
 ### 🗄️ Database Viewer & Editor
-- **Multi-Database Support** — Connect to PostgreSQL, MySQL, SQLite, MongoDB, Redis, and MSSQL
-- **Connection Manager** — Save, test, and manage multiple database connections with status indicators
+- **SQLite Support** — Connect to SQLite databases with full schema browsing and query execution
+- **Connection Manager** — Save and manage database connections
 - **Schema Explorer** — Browse tables, columns, data types, and constraints
 - **SQL Query Editor** — Write and execute SQL queries with Ctrl+Enter, view results in a formatted table
-- **Query History** — Access previously executed queries for quick re-run
+- **Read-Only by Default** — Only SELECT/WITH/PRAGMA/EXPLAIN are allowed unless `AICODE_DB_WRITE_ENABLED=true`
+- **Other Databases** — PostgreSQL, MySQL, MongoDB, Redis, MSSQL support is planned (coming soon)
 
-### 👥 Live Collaborative Editing
-- **Real-Time Collaboration** — Join collaboration rooms to edit code simultaneously with other users
-- **CRDT-Based Sync** — Powered by Yjs conflict-free replicated data types for seamless concurrent editing
-- **Presence Indicators** — See connected peers, their cursor positions, and which files they are viewing
-- **Built-In Chat** — Communicate with collaborators without leaving the IDE
-- **Sync Status** — Visual indicators show sync state: synced, syncing, or conflict
+### 👥 Collaborative Editing (Simulated)
+- **Room Management** — Create and join collaboration rooms
+- **Participant Tracking** — See connected peers with cursor colors
+- **Experimental** — Real-time sync requires a WebSocket server; currently uses in-memory state
 
 ### 🔍 Real Search
 - **Search in Files** — Searches through actual file contents in your workspace
@@ -96,18 +94,17 @@
 - **Commit History** — Browse commit log with SHA, author, date, and message
 
 ### 💻 Integrated Terminal
-- **Real File Operations** — `touch`, `mkdir`, `rm`, `mv`, `cat` operate on the actual virtual file system
-- **Directory Navigation** — `cd`, `pwd`, `ls`, `tree` work with the real folder structure
-- **Git Commands** — `git status` and `git log` show real virtual git state
+- **Virtual Terminal** — `touch`, `mkdir`, `rm`, `mv`, `cat` operate on the virtual file system
+- **Directory Navigation** — `cd`, `pwd`, `ls`, `tree` work with the folder structure
 - **Command History** — Arrow up/down to navigate previous commands
 - **Neofetch** — System info display with `neofetch` command
-- **AI & TODO Commands** — Check AI provider status and manage tasks from the terminal
+- **Real PTY** — Available when `AICODE_ENABLE_TERMINAL=true` with node-pty installed (requires server mode)
 
-### 🔧 Language Server Protocol
-- **Multi-Language Support** — 10 language servers: TypeScript, JavaScript, Python, Rust, Go, Java, C/C++, HTML, CSS, JSON
-- **Start/Stop Servers** — Control language servers individually with status indicators
-- **Diagnostics** — Real-time error, warning, and info diagnostics grouped by file with search and severity filtering
-- **Code Actions** — Quick fixes and refactoring suggestions from language servers
+### 🔧 Language Server Protocol (Simulated)
+- **Multi-Language Support** — 10 language configurations: TypeScript, JavaScript, Python, Rust, Go, Java, C/C++, HTML, CSS, JSON
+- **Start/Stop Servers** — Manage language server instances with status indicators
+- **Simulated Diagnostics & Completions** — Basic syntax-aware suggestions and diagnostics
+- **Real LSP** — Available when `AICODE_ENABLE_LSP=true` with language servers installed (requires server mode)
 
 ### 🧩 Extension Marketplace
 - **Open VSX Registry** — Browse and install extensions from the Open VSX Registry
@@ -253,13 +250,19 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Production Build
 
-```bash
-# Build for production
-npm run build
+AICodeStudio supports two deployment modes:
 
-# Start production server
+```bash
+# Server mode (full IDE with APIs)
+npm run build:server
 npm start
+
+# Static demo mode (GitHub Pages)
+npm run build:static
+# Output in out/ directory
 ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ### Install as Desktop App
 
@@ -277,13 +280,14 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── ai/route.ts              # AI chat endpoint
-│   │   ├── collaboration/route.ts   # Real-time collaboration
-│   │   ├── database/route.ts        # Database connections & queries
+│   │   ├── capabilities/route.ts    # Server capability status
+│   │   ├── collaboration/route.ts   # Collaboration room management
+│   │   ├── database/route.ts        # SQLite connections & queries
 │   │   ├── docker/route.ts          # Docker container management
 │   │   ├── extensions/route.ts      # Extension marketplace API
-│   │   ├── git/route.ts             # Git operations API
+│   │   ├── git/route.ts             # Git operations (sandboxed)
 │   │   ├── lsp/route.ts             # Language Server Protocol
-│   │   ├── terminal/route.ts        # PTY terminal proxy
+│   │   ├── terminal/route.ts        # Terminal session management
 │   │   ├── themes/route.ts          # Theme marketplace API
 │   │   └── voice/route.ts           # Voice-to-code processing
 │   ├── globals.css                   # Global styles & theme variables
@@ -291,37 +295,39 @@ src/
 │   └── page.tsx                      # Main entry point
 ├── components/
 │   ├── ide/
-│   │   ├── activity-bar.tsx          # Left icon sidebar (14 panels)
+│   │   ├── activity-bar.tsx          # Left icon sidebar
 │   │   ├── ai-chat.tsx              # AI chat with provider config
 │   │   ├── bottom-panel.tsx         # Terminal/Output/Problems/Debug
 │   │   ├── canvas-navigation.tsx    # Visual file graph canvas
-│   │   ├── collaboration-panel.tsx  # Real-time collaboration
+│   │   ├── collaboration-panel.tsx  # Collaboration rooms
 │   │   ├── command-palette.tsx      # Ctrl+Shift+P command search
 │   │   ├── database-panel.tsx       # Database viewer & query editor
 │   │   ├── docker-panel.tsx         # Docker container management
 │   │   ├── editor-area.tsx          # Monaco Editor with settings
 │   │   ├── extensions-marketplace.tsx # Open VSX marketplace
-│   │   ├── extensions-panel.tsx     # Extension management
-│   │   ├── file-tree.tsx            # Recursive file explorer with CRUD
-│   │   ├── git-operations.tsx       # Full Git workflow panel
+│   │   ├── file-tree.tsx            # Recursive file explorer
 │   │   ├── git-panel.tsx            # Source control with staging
-│   │   ├── github-panel.tsx         # GitHub API integration
 │   │   ├── ide-main.tsx             # Main IDE layout orchestrator
 │   │   ├── lsp-panel.tsx            # Language Server Protocol
-│   │   ├── search-panel.tsx         # Real file content search
-│   │   ├── settings-panel.tsx       # Editor preferences
-│   │   ├── sidebar-panel.tsx        # Sidebar panel router
-│   │   ├── status-bar.tsx           # Dynamic status information
+│   │   ├── runtime-status.tsx       # Server capability indicators
+│   │   ├── search-panel.tsx         # File content search
+│   │   ├── settings-panel.tsx       # Editor preferences + runtime status
 │   │   ├── terminal-panel.tsx       # Terminal with FS commands
-│   │   ├── themes-panel.tsx         # Theme marketplace & builder
-│   │   ├── todos-panel.tsx          # TODO task management
-│   │   └── voice-panel.tsx          # Voice-to-code integration
+│   │   └── ...                      # More IDE components
 │   └── ui/                           # shadcn/ui component library
 ├── store/
 │   ├── ide-store.ts                  # Re-exports from enhanced store
-│   └── ide-store-enhanced.ts         # Zustand global state with virtual FS
-└── lib/
-    └── utils.ts                      # Utility functions
+│   └── ide-store-enhanced.ts         # Zustand global state (secrets NOT persisted)
+├── lib/
+│   ├── security/
+│   │   ├── path-sandbox.ts           # Path traversal protection
+│   │   └── sql-guard.ts              # SQL query restriction
+│   ├── server-flags/
+│   │   └── index.ts                  # Feature flag capability system
+│   ├── db.ts                         # Prisma client
+│   ├── version.ts                    # App version (single source of truth)
+│   └── utils.ts                      # Utility functions
+└── ...
 ```
 
 ---
@@ -368,23 +374,45 @@ src/
 - [x] Real search across file contents
 - [x] User-configurable AI providers with real API calls
 - [x] GitHub API integration for clone/search/trending
-- [x] Real git staging and commit workflow
-- [x] Terminal with file system commands
+- [x] Git staging and commit workflow (server mode)
+- [x] Virtual terminal with file system commands
 - [x] Configurable editor settings
-- [x] Installable/uninstallable extensions
-- [x] Docker container management
-- [x] Database viewer and query editor
-- [x] Live collaborative editing (CRDT-based)
-- [x] Language Server Protocol support
 - [x] Extension marketplace (Open VSX)
+- [x] Docker container management (requires explicit opt-in)
+- [x] SQLite database viewer and query editor
+- [x] Language Server Protocol (simulated; real LSP behind flag)
 - [x] Custom themes marketplace with theme builder
 - [x] Voice-to-code AI integration
 - [x] Canvas navigation for visual file graphs
-- [x] Advanced Git operations (push, pull, merge, rebase)
-- [x] Real-time code development
+- [x] PWA desktop installation
+- [x] Security hardening (path sandboxing, SQL guard, secret protection)
 - [ ] File System Access API for local files
 - [ ] Real PTY terminal over WebSocket
 - [ ] Canvas-based real-time collaborative whiteboard
+- [ ] Real-time collaboration via WebSocket (Yjs)
+- [ ] Real LSP integration for TypeScript/JavaScript
+- [ ] Multi-database adapters (PostgreSQL, MySQL, MongoDB)
+
+---
+
+## 📊 Feature Status
+
+| Feature | Static Demo | Server Mode | Status |
+|---------|:-----------:|:-----------:|--------|
+| Monaco Editor | Yes | Yes | Real |
+| Virtual FS | Yes | Yes | Real |
+| AI Chat | If provider set | Yes | Real if provider configured |
+| Search in Files | Yes | Yes | Real |
+| Extensions | Yes | Yes | Real (Open VSX) |
+| Themes | Yes | Yes | Real |
+| Docker | No | Optional | Protected by flag |
+| Terminal PTY | Virtual only | Optional | Real if `AICODE_ENABLE_TERMINAL=true` |
+| LSP | Simulated | Optional | Simulated by default; real if `AICODE_ENABLE_LSP=true` |
+| Database | No | SQLite only | Read-only by default |
+| Collaboration | No | Simulated | In-memory rooms only |
+| Git (server) | No | Yes | Sandboxed to WORKSPACE_DIR |
+| File System Access | Yes | Yes | Browser API (when supported) |
+| PWA Install | Yes | Yes | Real |
 
 ---
 

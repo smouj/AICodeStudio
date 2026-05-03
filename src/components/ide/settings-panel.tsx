@@ -2,6 +2,7 @@
 
 import { useIDEStore, type EditorSettings } from '@/store/ide-store'
 import { Settings, RotateCcw } from 'lucide-react'
+import { RuntimeStatus } from './runtime-status'
 
 export function SettingsPanel() {
   const editorSettings = useIDEStore((s) => s.editorSettings)
@@ -145,6 +146,10 @@ export function SettingsPanel() {
         </div>
 
         <div className="mt-6 pt-4 border-t border-[rgba(0,212,170,0.06)]">
+          <RuntimeStatus />
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-[rgba(0,212,170,0.06)]">
           <div className="text-[11px] text-[#30363d] font-mono">
             Settings are applied immediately to the editor.
           </div>

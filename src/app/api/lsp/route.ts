@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Language Server Protocol (LSP) API
-// Provides a REST interface for LSP features. In a real IDE, the LSP client
-// communicates over stdin/stdout or a socket with a language server process.
-// This API simulates that communication and returns structured LSP responses.
+//
+// STATUS: This API SIMULATES LSP features. It does NOT spawn or communicate
+// with real language server processes. Diagnostics and completions are
+// generated from basic content analysis.
+//
+// To enable real LSP:
+//   - Set AICODE_ENABLE_LSP=true
+//   - Install language servers (typescript-language-server, etc.)
+//   - A Node.js server is required (not static export)
 // ---------------------------------------------------------------------------
+
+function isLspReal(): boolean {
+  return process.env.AICODE_ENABLE_LSP === 'true';
+}
 
 interface LSPServer {
   id: string;
@@ -83,14 +94,60 @@ const LANGUAGE_SERVERS: Record<string, {
   },
 };
 
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const startBodySchema = z.object({
+  action: z.literal('start'),
+  language: z.string().min(1),
+  workspaceRoot: z.string().optional(),
+});
+
+const stopBodySchema = z.object({
+  action: z.literal('stop'),
+  serverId: z.string().optional(),
+  language: z.string().optional(),
+});
+
+const diagnosticsBodySchema = z.object({
+  action: z.literal('diagnostics'),
+  serverId: z.string().optional(),
+  language: z.string().optional(),
+  filePath: z.string().min(1),
+  content: z.string().optional(),
+});
+
+const completionBodySchema = z.object({
+  action: z.literal('completion'),
+  serverId: z.string().optional(),
+  language: z.string().optional(),
+  filePath: z.string().min(1),
+  content: z.string().optional(),
+  line: z.number().int().min(0),
+  column: z.number().int().min(0),
+  triggerCharacter: z.string().optional(),
+});
+
+const hoverBodySchema = z.object({
+  action: z.literal('hover'),
+  serverId: z.string().optional(),
+  language: z.string().optional(),
+  filePath: z.string().min(1),
+  line: z.number().int().min(0),
+  column: z.number().int().min(0),
+});
+
+const postBodySchema = z.discriminatedUnion('action', [
+  startBodySchema, stopBodySchema, diagnosticsBodySchema,
+  completionBodySchema, hoverBodySchema,
+]);
+
 /**
  * POST /api/lsp
- * LSP operations.
- * Body: { action: 'start'|'stop'|'diagnostics'|'completion'|'hover', ...params }
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { action } = body;
 
     switch (action) {
@@ -106,11 +163,17 @@ export async function POST(req: NextRequest) {
         return await handleHover(body);
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Supported: start, stop, diagnostics, completion, hover` },
+          { error: `Unknown action: ${action}` },
           { status: 400 }
         );
     }
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `LSP operation failed: ${message}` },
@@ -121,10 +184,6 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/lsp
- * Get LSP server status or list available languages.
- * Query params:
- *   - action=status|languages|servers (default: languages)
- *   - serverId: server ID (required for status)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -147,7 +206,7 @@ export async function GET(req: NextRequest) {
         return await handleListServers();
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Supported: status, languages, servers` },
+          { error: `Unknown action: ${action}` },
           { status: 400 }
         );
     }
@@ -164,15 +223,8 @@ export async function GET(req: NextRequest) {
 // Handlers
 // ---------------------------------------------------------------------------
 
-async function handleStart(body: { language?: string; workspaceRoot?: string }) {
+async function handleStart(body: z.infer<typeof startBodySchema>) {
   const { language, workspaceRoot } = body;
-
-  if (!language) {
-    return NextResponse.json(
-      { error: 'language is required' },
-      { status: 400 }
-    );
-  }
 
   const serverConfig = LANGUAGE_SERVERS[language.toLowerCase()];
   if (!serverConfig) {
@@ -199,20 +251,22 @@ async function handleStart(body: { language?: string; workspaceRoot?: string }) 
       status: existingServer.status,
       message: `LSP server for ${language} is already running`,
       capabilities: existingServer.capabilities,
+      mode: isLspReal() ? 'real' : 'simulated',
     });
   }
 
-  // In a real implementation, we would spawn the language server process here
   const serverId = randomUUID();
   const server: LSPServer = {
     id: serverId,
     language: language.toLowerCase(),
-    status: 'running', // Simulate successful start
+    status: 'running',
     startedAt: Date.now(),
     capabilities: serverConfig.capabilities,
   };
 
   servers.set(serverId, server);
+
+  const isReal = isLspReal();
 
   return NextResponse.json({
     success: true,
@@ -220,16 +274,18 @@ async function handleStart(body: { language?: string; workspaceRoot?: string }) 
     serverId,
     language: language.toLowerCase(),
     status: server.status,
-    message: `LSP server for ${language} started successfully`,
+    message: isReal
+      ? `LSP server for ${language} started`
+      : `Simulated LSP server for ${language} started. This is NOT a real language server — diagnostics and completions are approximate.`,
     command: serverConfig.command,
     args: serverConfig.args,
     capabilities: server.capabilities,
     workspaceRoot: workspaceRoot || process.cwd(),
-    note: 'This is a simulated LSP server. In production, a real language server process would be spawned.',
+    mode: isReal ? 'real' : 'simulated',
   });
 }
 
-async function handleStop(body: { serverId?: string; language?: string }) {
+async function handleStop(body: z.infer<typeof stopBodySchema>) {
   const { serverId, language } = body;
 
   let server: LSPServer | undefined;
@@ -261,22 +317,9 @@ async function handleStop(body: { serverId?: string; language?: string }) {
   });
 }
 
-async function handleDiagnostics(body: {
-  serverId?: string;
-  language?: string;
-  filePath?: string;
-  content?: string;
-}) {
+async function handleDiagnostics(body: z.infer<typeof diagnosticsBodySchema>) {
   const { serverId, language, filePath, content } = body;
 
-  if (!filePath) {
-    return NextResponse.json(
-      { error: 'filePath is required' },
-      { status: 400 }
-    );
-  }
-
-  // Find or auto-start a server
   let server: LSPServer | undefined;
   if (serverId) {
     server = servers.get(serverId);
@@ -305,27 +348,15 @@ async function handleDiagnostics(body: {
     uri: filePath,
     language: server.language,
     diagnostics,
-    note: 'Simulated diagnostics. Connect a real language server for accurate results.',
+    mode: isLspReal() ? 'real' : 'simulated',
+    note: isLspReal()
+      ? undefined
+      : 'Simulated diagnostics. Connect a real language server for accurate results.',
   });
 }
 
-async function handleCompletion(body: {
-  serverId?: string;
-  language?: string;
-  filePath?: string;
-  content?: string;
-  line?: number;
-  column?: number;
-  triggerCharacter?: string;
-}) {
+async function handleCompletion(body: z.infer<typeof completionBodySchema>) {
   const { serverId, language, filePath, content, line, column, triggerCharacter } = body;
-
-  if (!filePath || line === undefined || column === undefined) {
-    return NextResponse.json(
-      { error: 'filePath, line, and column are required' },
-      { status: 400 }
-    );
-  }
 
   let server: LSPServer | undefined;
   if (serverId) {
@@ -343,7 +374,6 @@ async function handleCompletion(body: {
     );
   }
 
-  // Simulated completion items
   const items = generateSimulatedCompletions(
     server.language,
     content || '',
@@ -362,25 +392,15 @@ async function handleCompletion(body: {
     triggerCharacter: triggerCharacter || null,
     isIncomplete: false,
     items,
-    note: 'Simulated completions. Connect a real language server for accurate results.',
+    mode: isLspReal() ? 'real' : 'simulated',
+    note: isLspReal()
+      ? undefined
+      : 'Simulated completions. Connect a real language server for accurate results.',
   });
 }
 
-async function handleHover(body: {
-  serverId?: string;
-  language?: string;
-  filePath?: string;
-  line?: number;
-  column?: number;
-}) {
+async function handleHover(body: z.infer<typeof hoverBodySchema>) {
   const { serverId, language, filePath, line, column } = body;
-
-  if (!filePath || line === undefined || column === undefined) {
-    return NextResponse.json(
-      { error: 'filePath, line, and column are required' },
-      { status: 400 }
-    );
-  }
 
   let server: LSPServer | undefined;
   if (serverId) {
@@ -409,12 +429,15 @@ async function handleHover(body: {
         language: server.language,
         value: `// Hover information for ${filePath}:${line + 1}:${column + 1}`,
       },
-      'Connect a real language server for accurate hover information.',
+      isLspReal()
+        ? ''
+        : 'Simulated hover. Connect a real language server for accurate hover information.',
     ],
     range: {
       start: { line, character: column },
       end: { line, character: column + 10 },
     },
+    mode: isLspReal() ? 'real' : 'simulated',
   });
 }
 
@@ -439,6 +462,7 @@ async function handleStatus(serverId: string) {
       uptime: Date.now() - server.startedAt,
       capabilities: server.capabilities,
     },
+    mode: isLspReal() ? 'real' : 'simulated',
   });
 }
 
@@ -454,6 +478,7 @@ async function handleListLanguages() {
     action: 'languages',
     languages,
     total: languages.length,
+    mode: isLspReal() ? 'real' : 'simulated',
   });
 }
 
@@ -474,6 +499,7 @@ async function handleListServers() {
     action: 'servers',
     servers: activeServers,
     total: activeServers.length,
+    mode: isLspReal() ? 'real' : 'simulated',
   });
 }
 
@@ -495,7 +521,6 @@ function generateSimulatedDiagnostics(
   }> = [];
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
 
-  // Basic syntax checks based on file extension
   if (['ts', 'tsx', 'js', 'jsx'].includes(ext)) {
     if (_content.includes('console.log')) {
       diagnostics.push({
@@ -503,7 +528,7 @@ function generateSimulatedDiagnostics(
           start: { line: 0, character: 0 },
           end: { line: 0, character: 0 },
         },
-        severity: 2, // Warning
+        severity: 2,
         message: 'Unexpected console statement',
         source: 'typescript',
         code: 'no-console',
@@ -538,7 +563,6 @@ function generateSimulatedCompletions(
 ) {
   const items: Array<{ label: string; kind: number; detail: string; insertText: string }> = [];
 
-  // Language-specific snippet completions
   if (['typescript', 'javascript'].includes(language)) {
     const jsItems = [
       { label: 'console.log', kind: 3, detail: 'console.log(...)', insertText: 'console.log($1)' },
@@ -570,7 +594,6 @@ function generateSimulatedCompletions(
       { label: 'while', kind: 15, detail: 'While loop', insertText: 'while ${1:condition}:\n\t$0' },
     );
   } else {
-    // Generic completions
     items.push(
       { label: 'if', kind: 15, detail: 'If statement', insertText: 'if ${1:condition}\n\t$0' },
       { label: 'for', kind: 15, detail: 'For loop', insertText: 'for ${1:item}\n\t$0' },

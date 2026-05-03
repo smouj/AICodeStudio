@@ -1,47 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Docker Engine API helper
-// Attempts to connect via unix socket (/var/run/docker.sock) or TCP
-// (DOCKER_HOST env var). Gracefully returns an error when Docker is
-// unavailable.
+// SECURITY: Docker is DISABLED by default.
+//   - Requires AICODE_ENABLE_DOCKER=true
+//   - Requires DOCKER_HOST to be explicitly set
+//   - TCP on port 2375 without TLS is NOT recommended
+//   - Never expose Docker on a public server without auth/TLS/tunnel
 // ---------------------------------------------------------------------------
 
-const DOCKER_SOCKET = '/var/run/docker.sock';
-const DOCKER_HOST = process.env.DOCKER_HOST || '';
+function isDockerEnabled(): boolean {
+  return process.env.AICODE_ENABLE_DOCKER === 'true' && !!process.env.DOCKER_HOST;
+}
 
 function getDockerBaseUrl(): string {
-  if (DOCKER_HOST) {
-    return DOCKER_HOST.replace(/\/$/, '');
-  }
-  // When running inside Docker or with a TCP endpoint
-  return 'http://localhost:2375';
+  const host = process.env.DOCKER_HOST || '';
+  return host.replace(/\/$/, '');
 }
 
 async function dockerFetch(path: string, options?: RequestInit): Promise<Response> {
+  if (!isDockerEnabled()) {
+    throw new Error('Docker is disabled. Set AICODE_ENABLE_DOCKER=true and DOCKER_HOST to enable.');
+  }
+
   const baseUrl = getDockerBaseUrl();
   const url = `${baseUrl}${path}`;
 
-  try {
-    // Try TCP connection first
-    const response = await fetch(url, {
-      ...options,
-    });
-    return response;
-  } catch {
-    // If TCP fails, try unix socket via a simple exec approach
-    throw new Error('Docker Engine is not reachable. Ensure Docker is running and accessible.');
-  }
+  const response = await fetch(url, { ...options });
+  return response;
 }
+
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const postBodySchema = z.object({
+  action: z.enum(['start', 'stop', 'remove', 'restart']),
+  containerId: z.string().min(1),
+});
+
+const putBodySchema = z.object({
+  image: z.string().min(1),
+  tag: z.string().optional(),
+});
 
 /**
  * GET /api/docker
  * List containers and images.
- * Query params:
- *   - type=containers|images (default: containers)
- *   - all=true (include stopped containers)
+ * Returns "Docker disabled" if not enabled.
  */
 export async function GET(req: NextRequest) {
+  if (!isDockerEnabled()) {
+    return NextResponse.json({
+      success: false,
+      dockerAvailable: false,
+      message: 'Docker integration is disabled. Set AICODE_ENABLE_DOCKER=true and DOCKER_HOST to enable.',
+    }, { status: 200 }); // 200 so UI can display the status gracefully
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'containers';
@@ -145,24 +160,18 @@ async function listImages() {
  * Body: { action: 'start'|'stop'|'remove'|'restart', containerId: string }
  */
 export async function POST(req: NextRequest) {
+  if (!isDockerEnabled()) {
+    return NextResponse.json({
+      success: false,
+      dockerAvailable: false,
+      message: 'Docker integration is disabled.',
+    }, { status: 200 });
+  }
+
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { action, containerId } = body;
-
-    if (!action || !containerId) {
-      return NextResponse.json(
-        { error: 'action and containerId are required' },
-        { status: 400 }
-      );
-    }
-
-    const validActions = ['start', 'stop', 'remove', 'restart'];
-    if (!validActions.includes(action)) {
-      return NextResponse.json(
-        { error: `Invalid action. Must be one of: ${validActions.join(', ')}` },
-        { status: 400 }
-      );
-    }
 
     let path: string = `/containers/${containerId}`;
     let method = 'POST';
@@ -200,6 +209,12 @@ export async function POST(req: NextRequest) {
       message: `Container ${containerId} ${action}ed successfully`,
     });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Docker operation failed: ${message}`, dockerAvailable: false },
@@ -214,19 +229,21 @@ export async function POST(req: NextRequest) {
  * Body: { image: string, tag?: string }
  */
 export async function PUT(req: NextRequest) {
+  if (!isDockerEnabled()) {
+    return NextResponse.json({
+      success: false,
+      dockerAvailable: false,
+      message: 'Docker integration is disabled.',
+    }, { status: 200 });
+  }
+
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = putBodySchema.parse(rawBody);
     const { image, tag } = body;
 
-    if (!image) {
-      return NextResponse.json(
-        { error: 'image is required (e.g., "nginx", "postgres:15")' },
-        { status: 400 }
-      );
-    }
-
     const imageTag = tag || 'latest';
-    const fromImage = tag ? image : `${image}`;
+    const fromImage = image;
     const response = await dockerFetch(
       `/images/create?fromImage=${encodeURIComponent(fromImage)}&tag=${encodeURIComponent(imageTag)}`,
       { method: 'POST' }
@@ -250,6 +267,12 @@ export async function PUT(req: NextRequest) {
       details: result,
     });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Docker pull failed: ${message}`, dockerAvailable: false },

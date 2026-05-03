@@ -169,7 +169,7 @@ export function IDEMain() {
               <line x1="290" y1="160" x2="222" y2="352" stroke="#00d4aa" strokeWidth="20" strokeLinecap="round"/>
             </svg>
             <span className="text-[#e6edf3] text-[12px] font-mono font-semibold tracking-tight">AICodeStudio</span>
-            <span className="text-[#30363d] text-[10px] font-mono ml-0.5">v1.0.0</span>
+            <span className="text-[#30363d] text-[10px] font-mono ml-0.5">v2.0.0</span>
           </div>
         </div>
         {/* Menu Bar */}

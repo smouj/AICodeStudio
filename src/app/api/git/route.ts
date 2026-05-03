@@ -3,19 +3,54 @@ import fs from 'fs';
 import path from 'path';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/node';
+import { z } from 'zod';
+import { assertInsideWorkspaceRoot, getWorkspaceRoot } from '@/lib/security/path-sandbox';
 
 // ---------------------------------------------------------------------------
 // Git Operations API
 // Uses isomorphic-git for browser/Node.js git operations.
-// Falls back to native git commands where isomorphic-git has limitations.
+// All paths are sandboxed to WORKSPACE_ROOT.
 // ---------------------------------------------------------------------------
 
-// Default directory for git operations (workspace root)
-function getWorkDir(body: Record<string, unknown> | null): string {
-  if (body?.workDir && typeof body.workDir === 'string') {
-    return body.workDir;
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const gitActionSchema = z.enum([
+  'init', 'add', 'commit', 'push', 'pull', 'branch', 'merge',
+]);
+
+const postBodySchema = z.object({
+  action: gitActionSchema,
+  workDir: z.string().optional(),
+  filepath: z.string().optional(),
+  file: z.string().optional(),
+  message: z.string().optional(),
+  author: z.object({ name: z.string().optional(), email: z.string().optional() }).optional(),
+  remote: z.string().optional(),
+  ref: z.string().optional(),
+  authToken: z.string().optional(),
+  name: z.string().optional(),
+  checkout: z.boolean().optional(),
+  startPoint: z.string().optional(),
+  ours: z.string().optional(),
+  theirs: z.string().optional(),
+}).passthrough();
+
+const getQuerySchema = z.object({
+  action: z.enum(['log', 'diff', 'status', 'branches', 'remotes']).default('status'),
+  workDir: z.string().optional(),
+  file: z.string().optional(),
+  depth: z.coerce.number().int().min(1).max(500).default(50),
+});
+
+/**
+ * Resolve and validate workDir against workspace root.
+ * Throws if path traversal is detected.
+ */
+function resolveWorkDir(rawWorkDir?: string): string {
+  if (rawWorkDir) {
+    return assertInsideWorkspaceRoot(rawWorkDir);
   }
-  return process.env.WORKSPACE_DIR || process.cwd();
+  return getWorkspaceRoot();
 }
 
 /**
@@ -25,9 +60,10 @@ function getWorkDir(body: Record<string, unknown> | null): string {
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { action } = body;
-    const dir = getWorkDir(body);
+    const dir = resolveWorkDir(body.workDir as string | undefined);
 
     switch (action) {
       case 'init':
@@ -51,6 +87,12 @@ export async function POST(req: NextRequest) {
         );
     }
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Git operation failed: ${message}` },
@@ -66,21 +108,19 @@ export async function POST(req: NextRequest) {
  *   - action=log|diff|status|branches|remotes
  *   - workDir: working directory
  *   - file: file path (for diff)
- *   - depth: log depth (default 50)
+ *   - depth: log depth (default 50, max 500)
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const action = searchParams.get('action') || 'status';
-    const workDir = searchParams.get('workDir') || process.env.WORKSPACE_DIR || process.cwd();
-    const file = searchParams.get('file') || '';
-    const depth = parseInt(searchParams.get('depth') || '50', 10);
+    const query = getQuerySchema.parse(Object.fromEntries(searchParams.entries()));
+    const workDir = resolveWorkDir(query.workDir);
 
-    switch (action) {
+    switch (query.action) {
       case 'log':
-        return await handleLog(workDir, depth);
+        return await handleLog(workDir, query.depth);
       case 'diff':
-        return await handleDiff(workDir, file);
+        return await handleDiff(workDir, query.file || '');
       case 'status':
         return await handleStatus(workDir);
       case 'branches':
@@ -89,11 +129,17 @@ export async function GET(req: NextRequest) {
         return await handleListRemotes(workDir);
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Supported: log, diff, status, branches, remotes` },
+          { error: `Unknown action` },
           { status: 400 }
         );
     }
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Git operation failed: ${message}` },

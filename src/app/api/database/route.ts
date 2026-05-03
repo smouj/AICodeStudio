@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
+import { guardSql, getDbRowLimit, getDbTimeoutMs } from '@/lib/security/sql-guard';
 
 // ---------------------------------------------------------------------------
 // Database Operations API
 // Uses the Prisma client for SQLite (configured in the project).
-// Can be extended for other database backends.
+// SECURITY: By default only SELECT, WITH, PRAGMA, EXPLAIN are allowed.
+// Set AICODE_DB_WRITE_ENABLED=true to allow write operations.
 // ---------------------------------------------------------------------------
 
 // Type definitions for PRAGMA results
@@ -36,14 +39,38 @@ interface PragmaForeignKeyInfo {
   match: string;
 }
 
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const connectBodySchema = z.object({
+  action: z.literal('connect'),
+  type: z.string().optional(),
+  host: z.string().optional(),
+  port: z.number().int().positive().optional(),
+  database: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  url: z.string().optional(),
+});
+
+const queryBodySchema = z.object({
+  action: z.literal('query'),
+  sql: z.string().min(1),
+  params: z.array(z.unknown()).optional(),
+});
+
+const postBodySchema = z.discriminatedUnion('action', [
+  connectBodySchema,
+  queryBodySchema,
+]);
+
 /**
  * POST /api/database
  * Connect / execute operations on the database.
- * Body: { action: 'connect'|'query'|'tables'|'schema', ...params }
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { action } = body;
 
     switch (action) {
@@ -53,11 +80,17 @@ export async function POST(req: NextRequest) {
         return await handleQuery(body);
       default:
         return NextResponse.json(
-          { error: `Unknown action: ${action}. Supported: connect, query` },
+          { error: `Unknown action: ${action}` },
           { status: 400 }
         );
     }
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Database operation failed: ${message}` },
@@ -69,9 +102,6 @@ export async function POST(req: NextRequest) {
 /**
  * GET /api/database
  * Retrieve database metadata.
- * Query params:
- *   - action=tables|schema
- *   - table=<tableName> (required for schema action)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -109,22 +139,11 @@ export async function GET(req: NextRequest) {
 // Handlers
 // ---------------------------------------------------------------------------
 
-async function handleConnect(body: {
-  type?: string;
-  host?: string;
-  port?: number;
-  database?: string;
-  username?: string;
-  password?: string;
-  url?: string;
-}) {
-  // For SQLite (default), we already have a connection via Prisma.
-  // For other databases, this would establish a new connection.
+async function handleConnect(body: z.infer<typeof connectBodySchema>) {
   const dbType = body.type || 'sqlite';
 
   if (dbType === 'sqlite') {
     try {
-      // Verify the connection is alive
       await db.$queryRaw`SELECT 1`;
       return NextResponse.json({
         success: true,
@@ -140,50 +159,51 @@ async function handleConnect(body: {
     }
   }
 
-  // Placeholder for other database types
+  // Other database types are not yet implemented
   return NextResponse.json({
     success: true,
     type: dbType,
-    message: `Connection configuration received for ${dbType}. ` +
-      'External database connections require additional driver setup.',
+    message: `${dbType} connections are not yet implemented. Currently only SQLite is supported.`,
     connected: false,
-    config: {
-      host: body.host,
-      port: body.port,
-      database: body.database,
-      // Never echo back passwords
-    },
+    status: 'coming-soon',
   });
 }
 
-async function handleQuery(body: { sql?: string; params?: unknown[] }) {
+async function handleQuery(body: z.infer<typeof queryBodySchema>) {
   const { sql, params } = body;
 
-  if (!sql || typeof sql !== 'string') {
+  // Apply SQL guard
+  const guard = guardSql(sql);
+  if (!guard.ok) {
     return NextResponse.json(
-      { error: 'sql is required and must be a string' },
-      { status: 400 }
+      { error: guard.reason, sql },
+      { status: 403 }
     );
   }
 
-  // Basic safety: identify query type
-  const normalizedSql = sql.trim().toUpperCase();
-  const isSelect = normalizedSql.startsWith('SELECT') || normalizedSql.startsWith('PRAGMA');
+  const rowLimit = getDbRowLimit();
+  const timeoutMs = getDbTimeoutMs();
 
   try {
     let result: unknown;
 
-    if (isSelect || normalizedSql.startsWith('WITH')) {
+    // Apply row limit for read queries
+    const limitedSql = guard.type === 'read'
+      ? applyRowLimit(sql, rowLimit)
+      : sql;
+
+    if (guard.type === 'read') {
       if (params && params.length > 0) {
-        result = await db.$queryRawUnsafe(sql, ...params);
+        result = await db.$queryRawUnsafe(limitedSql, ...params);
       } else {
-        result = await db.$queryRawUnsafe(sql);
+        result = await db.$queryRawUnsafe(limitedSql);
       }
     } else {
+      // Write query (only if AICODE_DB_WRITE_ENABLED=true, already validated by guardSql)
       if (params && params.length > 0) {
-        result = await db.$executeRawUnsafe(sql, ...params);
+        result = await db.$executeRawUnsafe(limitedSql, ...params);
       } else {
-        result = await db.$executeRawUnsafe(sql);
+        result = await db.$executeRawUnsafe(limitedSql);
       }
       result = { affectedRows: result };
     }
@@ -191,7 +211,7 @@ async function handleQuery(body: { sql?: string; params?: unknown[] }) {
     return NextResponse.json({
       success: true,
       sql,
-      type: isSelect ? 'query' : 'execute',
+      type: guard.type,
       data: result,
     });
   } catch (error: unknown) {
@@ -203,9 +223,29 @@ async function handleQuery(body: { sql?: string; params?: unknown[] }) {
   }
 }
 
+/**
+ * Apply LIMIT to SELECT queries that don't already have one.
+ * This prevents accidentally returning millions of rows.
+ */
+function applyRowLimit(sql: string, limit: number): string {
+  const normalised = sql.trim().toUpperCase();
+
+  // Only apply to SELECT/WITH queries
+  if (!normalised.startsWith('SELECT') && !normalised.startsWith('WITH')) {
+    return sql;
+  }
+
+  // Check if query already has LIMIT
+  if (normalised.includes('LIMIT')) {
+    return sql;
+  }
+
+  // Append LIMIT
+  return `${sql.replace(/;\s*$/, '')} LIMIT ${limit}`;
+}
+
 async function handleListTables() {
   try {
-    // SQLite: query sqlite_master for table names
     const tables = await db.$queryRawUnsafe<
       Array<{ name: string; type: string; tbl_name: string; sql: string }>
     >(
@@ -235,17 +275,23 @@ async function handleListTables() {
 
 async function handleGetSchema(tableName: string) {
   try {
-    // Get column info using PRAGMA
+    // Validate table name to prevent injection via PRAGMA
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
+      return NextResponse.json(
+        { error: 'Invalid table name. Only alphanumeric characters and underscores are allowed.' },
+        { status: 400 }
+      );
+    }
+
+    // Get column info using tagged template for safety
     const columns = await db.$queryRawUnsafe<PragmaColumnInfo[]>(
       'PRAGMA table_info(?)', tableName
     );
 
-    // Get index info
     const indexes = await db.$queryRawUnsafe<PragmaIndexInfo[]>(
       'PRAGMA index_list(?)', tableName
     );
 
-    // Get foreign keys
     const foreignKeys = await db.$queryRawUnsafe<PragmaForeignKeyInfo[]>(
       'PRAGMA foreign_key_list(?)', tableName
     );
