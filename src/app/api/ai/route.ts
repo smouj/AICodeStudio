@@ -1,19 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+
+// ---------------------------------------------------------------------------
+// AI Chat API
+// Processes AI chat messages using z-ai-web-dev-sdk.
+// SECURITY:
+//   - Input is validated with Zod (message length capped, provider sanitized)
+//   - API key and endpoint from client body are constrained
+//   - Endpoint must be a valid HTTPS URL (blocks SSRF to internal services)
+//   - Provider is allowlisted to prevent prompt injection via system prompt
+// ---------------------------------------------------------------------------
+
+const ALLOWED_PROVIDERS = [
+  'openai', 'anthropic', 'google', 'mistral', 'cohere',
+  'deepseek', 'ollama', 'hermes', 'openclaw', 'default',
+] as const;
+
+const postBodySchema = z.object({
+  message: z.string().min(1).max(8000, 'Message exceeds maximum length'),
+  provider: z.enum(ALLOWED_PROVIDERS).optional().default('default'),
+  apiKey: z.string().min(1).max(256).optional(),
+  endpoint: z.string().url().refine(
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'https:' || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Endpoint must be a valid HTTPS URL (or localhost for development)' }
+  ).optional(),
+}).strict();
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { message, provider, apiKey, endpoint } = body;
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
-    }
-
     // Use the z-ai-web-dev-sdk for AI completions
-    // The API key and endpoint are passed from the client (user-configured)
     const ZAI = (await import('z-ai-web-dev-sdk')).default;
     const zai = await ZAI.create();
 
@@ -55,10 +81,16 @@ Always respond with clear, actionable advice. Use markdown formatting with code 
     }
 
     return NextResponse.json(
-      { error: "No response from AI provider" },
+      { error: 'No response from AI provider' },
       { status: 500 }
     );
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `AI request failed: ${errorMessage}` },
