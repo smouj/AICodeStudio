@@ -27,6 +27,8 @@
 
 ## Screenshots
 
+*All screenshots are captured from the real running application — no mockups or AI-generated images.*
+
 <table>
   <tr>
     <td align="center"><b>Agent Control Panel</b></td>
@@ -37,12 +39,60 @@
     <td><img src="public/screenshots/aicodestudio-editor-terminal.png" alt="Editor + Terminal" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><b>Runtime Status</b></td>
-    <td align="center"><b>Welcome Screen</b></td>
+    <td align="center"><b>File Explorer</b></td>
+    <td align="center"><b>Search in Files</b></td>
   </tr>
   <tr>
+    <td><img src="public/screenshots/aicodestudio-explorer.png" alt="File Explorer" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-search.png" alt="Search" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Source Control</b></td>
+    <td align="center"><b>GitHub Integration</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-git.png" alt="Source Control" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-github.png" alt="GitHub" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Extensions Marketplace</b></td>
+    <td align="center"><b>Themes Marketplace</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-extensions.png" alt="Extensions" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-themes.png" alt="Themes" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Docker Management</b></td>
+    <td align="center"><b>Database Viewer</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-docker.png" alt="Docker" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-database.png" alt="Database" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Language Servers</b></td>
+    <td align="center"><b>Runtime Status / Settings</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-lsp.png" alt="Language Servers" width="100%" /></td>
     <td><img src="public/screenshots/aicodestudio-runtime-status.png" alt="Runtime Status" width="100%" /></td>
-    <td><img src="public/screenshots/aicodestudio-welcome.png" alt="Welcome" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Canvas Navigation</b></td>
+    <td align="center"><b>Command Palette</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-canvas.png" alt="Canvas" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-command-palette.png" alt="Command Palette" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Collaboration</b></td>
+    <td align="center"><b>TODOs</b></td>
+  </tr>
+  <tr>
+    <td><img src="public/screenshots/aicodestudio-collaboration.png" alt="Collaboration" width="100%" /></td>
+    <td><img src="public/screenshots/aicodestudio-todos.png" alt="TODOs" width="100%" /></td>
   </tr>
 </table>
 
