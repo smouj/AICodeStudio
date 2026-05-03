@@ -14,14 +14,65 @@ function isDockerEnabled(): boolean {
   return process.env.AICODE_ENABLE_DOCKER === 'true' && !!process.env.DOCKER_HOST;
 }
 
+function isDockerTlsSafe(): { safe: boolean; reason?: string } {
+  const host = process.env.DOCKER_HOST || '';
+
+  // Unix socket is always safe (local-only, no network exposure)
+  if (host.startsWith('unix://') || host.startsWith('/')) {
+    return { safe: true };
+  }
+
+  // HTTPS/TLS is safe
+  if (host.startsWith('https://')) {
+    return { safe: true };
+  }
+
+  // TCP on port 2375 without TLS is dangerous
+  try {
+    const url = new URL(host.startsWith('tcp://') ? host : `http://${host}`);
+    if (url.protocol === 'tcp:' || url.protocol === 'http:') {
+      if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1') {
+        // localhost TCP without TLS is risky but accepted with a warning
+        // Only allowed if AICODE_DOCKER_ALLOW_UNSAFE=true is explicitly set
+        if (process.env.AICODE_DOCKER_ALLOW_UNSAFE !== 'true') {
+          return {
+            safe: false,
+            reason: `Docker is using unencrypted TCP on ${url.host}. Set AICODE_DOCKER_ALLOW_UNSAFE=true to acknowledge the risk, or use a Unix socket / HTTPS / SSH tunnel instead.`,
+          };
+        }
+        return { safe: true };
+      }
+      // Non-localhost TCP without TLS is always blocked
+      return {
+        safe: false,
+        reason: `Docker is using unencrypted TCP on ${url.host} (non-localhost). This is blocked for security. Use HTTPS, SSH tunnel, or a Unix socket.`,
+      };
+    }
+  } catch {
+    // If URL parsing fails, treat as unsafe
+    return { safe: false, reason: 'Cannot parse DOCKER_HOST URL. Use tcp://, unix://, or https:// format.' };
+  }
+
+  return { safe: true };
+}
+
 function getDockerBaseUrl(): string {
   const host = process.env.DOCKER_HOST || '';
+  // Convert tcp:// to http:// for fetch() compatibility
+  if (host.startsWith('tcp://')) {
+    return host.replace('tcp://', 'http://').replace(/\/$/, '');
+  }
   return host.replace(/\/$/, '');
 }
 
 async function dockerFetch(path: string, options?: RequestInit): Promise<Response> {
   if (!isDockerEnabled()) {
     throw new Error('Docker is disabled. Set AICODE_ENABLE_DOCKER=true and DOCKER_HOST to enable.');
+  }
+
+  const tlsCheck = isDockerTlsSafe();
+  if (!tlsCheck.safe) {
+    throw new Error(tlsCheck.reason || 'Docker connection is not secure.');
   }
 
   const baseUrl = getDockerBaseUrl();
