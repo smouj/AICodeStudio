@@ -1,13 +1,31 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Bot, Send, Zap, Radio, Loader2, Trash2, Plus, Settings, Key, AlertTriangle } from 'lucide-react'
+import { Bot, Send, Zap, Radio, Loader2, Trash2, Plus, Settings, Key, AlertTriangle, FileCode, Bug, Rocket, GitCompare, ListChecks, TestTube } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
 import ReactMarkdown from 'react-markdown'
+import { colors, radius, typography, spacing, animation } from '@/components/hud/tokens'
+import {
+  HUDSectionHeader,
+  HUDIconButton,
+  HUDBadge,
+  AgentStatusChip,
+  ToolPermissionBadge,
+  AgentActivityRow,
+} from '@/components/hud/hud-primitives'
 
 type AIResponse = { content: string; provider: string } | { error: string }
 
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts
+  if (diff < 60000) return 'just now'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return `${Math.floor(diff / 86400000)}d ago`
+}
+
 export function AIChatPanel() {
+  // ─── Existing Store Selectors ──────────────────────────────
   const chatMessages = useIDEStore((s) => s.chatMessages)
   const addChatMessage = useIDEStore((s) => s.addChatMessage)
   const clearChatMessages = useIDEStore((s) => s.clearChatMessages)
@@ -20,25 +38,36 @@ export function AIChatPanel() {
   const addTodo = useIDEStore((s) => s.addTodo)
   const updateAiProvider = useIDEStore((s) => s.updateAiProvider)
 
+  // ─── New Store Selectors ───────────────────────────────────
+  const activeTabId = useIDEStore((s) => s.activeTabId)
+  const openTabs = useIDEStore((s) => s.openTabs)
+  const gitBranch = useIDEStore((s) => s.gitBranch)
+  const workspaceName = useIDEStore((s) => s.workspaceName)
+  const editorSettings = useIDEStore((s) => s.editorSettings)
+
+  // ─── Local State ───────────────────────────────────────────
   const [input, setInput] = useState('')
   const [showProviderConfig, setShowProviderConfig] = useState(false)
   const [configApiKey, setConfigApiKey] = useState('')
   const [configEndpoint, setConfigEndpoint] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // ─── Derived State ─────────────────────────────────────────
   const currentProvider = aiProviders.find((p) => p.id === activeAiProvider)
   const hasConfiguredProvider = aiProviders.length > 0
   const hasConnectedProvider = aiProviders.some((p) => p.status === 'connected')
+  const activeTab = openTabs.find((t) => t.id === activeTabId)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  // ─── Handlers (unchanged) ──────────────────────────────────
   const handleSend = async () => {
     if (!input.trim() || isAiLoading) return
 
     if (!hasConnectedProvider) {
-      addNotification('warning', 'No AI provider connected. Configure one in the AI panel first.')
+      addNotification('warning', 'No AI provider connected. Configure one in the Agent Control panel first.')
       setShowProviderConfig(true)
       return
     }
@@ -109,7 +138,6 @@ export function AIChatPanel() {
       return
     }
 
-    // If there's no active provider, create a default one
     if (aiProviders.length === 0) {
       const newProvider = {
         id: `provider-${Date.now()}`,
@@ -171,69 +199,134 @@ export function AIChatPanel() {
     }
   }
 
-  return (
-    <div className="h-full flex flex-col" role="region" aria-label="AI Assistant">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
-        <span>AI Assistant</span>
-        <div className="flex items-center gap-1">
-          {aiProviders.map((provider) => (
-            <button
-              key={provider.id}
-              onClick={() => setActiveAiProvider(provider.id)}
-              aria-pressed={activeAiProvider === provider.id}
-              className={`
-                flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-all cursor-pointer
-                ${activeAiProvider === provider.id
-                  ? 'bg-[rgba(0,212,170,0.12)] text-[#00d4aa]'
-                  : 'text-[#30363d] hover:text-[#484f58]'
-                }
-              `}
-            >
-              <Radio size={8} className={provider.status === 'connected' ? 'text-[#00d4aa]' : provider.status === 'error' ? 'text-[#f85149]' : 'text-[#ffa657]'} />
-              {provider.name}
-            </button>
-          ))}
-          <button
-            onClick={() => setShowProviderConfig(!showProviderConfig)}
-            className="text-[#30363d] hover:text-[#00d4aa] transition-colors cursor-pointer ml-1"
-            aria-label="Configure AI providers"
-            title="Configure providers"
-          >
-            <Settings size={10} />
-          </button>
-          {chatMessages.length > 0 && (
-            <button
-              onClick={clearChatMessages}
-              className="text-[#30363d] hover:text-[#f85149] transition-colors cursor-pointer"
-              aria-label="Clear chat history"
-              title="Clear chat"
-            >
-              <Trash2 size={10} />
-            </button>
-          )}
-        </div>
-      </div>
+  // ─── Quick Action Definitions ──────────────────────────────
+  const quickActions = [
+    { label: 'Explain current file', icon: FileCode, prompt: activeTab ? `Explain the file ${activeTab.name}` : 'Explain the current file' },
+    { label: 'Find bugs', icon: Bug, prompt: 'Find bugs in my code' },
+    { label: 'Optimize', icon: Rocket, prompt: 'Optimize performance' },
+    { label: 'Review staged', icon: GitCompare, prompt: 'Review my staged changes' },
+    { label: 'Implementation plan', icon: ListChecks, prompt: 'Create an implementation plan' },
+    { label: 'Run tests', icon: TestTube, prompt: 'Run tests and report results' },
+  ]
 
-      {/* Provider Configuration Panel */}
+  // ─── Last 5 Messages for Activity Timeline ────────────────
+  const recentMessages = chatMessages.slice(-5)
+
+  return (
+    <div
+      className="h-full flex flex-col"
+      style={{ background: colors.bg.panel }}
+      role="region"
+      aria-label="Agent Control"
+    >
+      {/* ─── Header ──────────────────────────────────────────── */}
+      <HUDSectionHeader
+        title="Agent Control"
+        actions={
+          <>
+            {aiProviders.map((provider) => (
+              <button
+                key={provider.id}
+                onClick={() => setActiveAiProvider(provider.id)}
+                aria-pressed={activeAiProvider === provider.id}
+                className="flex items-center gap-1 px-2 py-0.5 transition-all cursor-pointer"
+                style={{
+                  borderRadius: radius.md,
+                  fontSize: typography.fontSize.xs,
+                  fontFamily: typography.fontFamily.mono,
+                  background: activeAiProvider === provider.id ? colors.accent.dim : 'transparent',
+                  color: activeAiProvider === provider.id ? colors.accent.DEFAULT : colors.text.dim,
+                }}
+              >
+                <Radio
+                  size={8}
+                  style={{
+                    color:
+                      provider.status === 'connected'
+                        ? colors.success.DEFAULT
+                        : provider.status === 'error'
+                          ? colors.danger.DEFAULT
+                          : colors.warning.DEFAULT,
+                  }}
+                />
+                {provider.name}
+              </button>
+            ))}
+            <HUDIconButton
+              label="Configure providers"
+              size="sm"
+              onClick={() => setShowProviderConfig(!showProviderConfig)}
+            >
+              <Settings size={10} />
+            </HUDIconButton>
+            {chatMessages.length > 0 && (
+              <HUDIconButton
+                label="Clear chat history"
+                variant="danger"
+                size="sm"
+                onClick={clearChatMessages}
+              >
+                <Trash2 size={10} />
+              </HUDIconButton>
+            )}
+          </>
+        }
+      />
+
+      {/* ─── Provider Configuration Panel (kept as-is, restyled) ── */}
       {showProviderConfig && (
-        <div className="border-b border-[rgba(0,212,170,0.08)] p-3 space-y-3">
-          <div className="text-[12px] text-[#e6edf3] font-mono font-semibold">Configure AI Provider</div>
-          <p className="text-[11px] text-[#484f58]">
-            Add your AI provider API key to start using the AI assistant. Your key is stored only in your browser session and is never sent to our servers.
+        <div
+          className="p-3 space-y-3 shrink-0"
+          style={{ borderBottom: `1px solid ${colors.border.default}` }}
+        >
+          <div
+            style={{
+              fontSize: typography.fontSize.md,
+              color: colors.text.primary,
+              fontFamily: typography.fontFamily.mono,
+              fontWeight: typography.fontWeight.semibold,
+            }}
+          >
+            Configure AI Provider
+          </div>
+          <p style={{ fontSize: typography.fontSize.base, color: colors.text.dim }}>
+            Add your AI provider API key to start using the agent. Your key is stored only in your browser session and is never sent to our servers.
           </p>
 
           {aiProviders.length > 0 && (
             <div className="space-y-1">
               {aiProviders.map((provider) => (
-                <div key={provider.id} className="flex items-center justify-between px-2 py-1 bg-[#0d1117] rounded text-[11px] font-mono">
+                <div
+                  key={provider.id}
+                  className="flex items-center justify-between px-2 py-1"
+                  style={{
+                    background: colors.bg.elevated,
+                    borderRadius: radius.md,
+                    fontSize: typography.fontSize.base,
+                    fontFamily: typography.fontFamily.mono,
+                  }}
+                >
                   <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${provider.status === 'connected' ? 'bg-[#00d4aa]' : provider.status === 'error' ? 'bg-[#f85149]' : 'bg-[#ffa657]'}`} />
-                    <span className="text-[#e6edf3]">{provider.name}</span>
-                    <span className="text-[#30363d]">{provider.model}</span>
+                    <div
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{
+                        background:
+                          provider.status === 'connected'
+                            ? colors.success.DEFAULT
+                            : provider.status === 'error'
+                              ? colors.danger.DEFAULT
+                              : colors.warning.DEFAULT,
+                      }}
+                    />
+                    <span style={{ color: colors.text.primary }}>{provider.name}</span>
+                    <span style={{ color: colors.text.disabled }}>{provider.model}</span>
                   </div>
                   <button
                     onClick={() => handleRemoveProvider(provider.id)}
-                    className="text-[#30363d] hover:text-[#f85149] transition-colors cursor-pointer"
+                    className="transition-colors cursor-pointer"
+                    style={{ color: colors.text.disabled }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = colors.danger.DEFAULT)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = colors.text.disabled)}
                   >
                     <Trash2 size={10} />
                   </button>
@@ -243,43 +336,83 @@ export function AIChatPanel() {
           )}
 
           <div className="space-y-2">
-            <div className="flex items-center gap-2 bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded px-3 py-1.5 focus-within:border-[rgba(0,212,170,0.25)] transition-colors">
-              <Key size={12} className="text-[#30363d] shrink-0" />
+            <div
+              className="flex items-center gap-2 px-3 py-1.5"
+              style={{
+                background: colors.bg.elevated,
+                border: `1px solid ${colors.border.default}`,
+                borderRadius: radius.lg,
+                transition: `border-color ${animation.duration.normal}`,
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = colors.border.focus)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = colors.border.default)}
+            >
+              <Key size={12} style={{ color: colors.text.disabled }} className="shrink-0" />
               <input
                 type="password"
                 value={configApiKey}
                 onChange={(e) => setConfigApiKey(e.target.value)}
                 placeholder="API Key (required)"
-                className="flex-1 bg-transparent text-[12px] text-[#e6edf3] placeholder-[#30363d] outline-none font-mono"
+                className="flex-1 bg-transparent outline-none"
+                style={{
+                  fontSize: typography.fontSize.md,
+                  color: colors.text.primary,
+                  fontFamily: typography.fontFamily.mono,
+                }}
               />
             </div>
-            <div className="flex items-center gap-2 bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded px-3 py-1.5 focus-within:border-[rgba(0,212,170,0.25)] transition-colors">
-              <Zap size={12} className="text-[#30363d] shrink-0" />
+            <div
+              className="flex items-center gap-2 px-3 py-1.5"
+              style={{
+                background: colors.bg.elevated,
+                border: `1px solid ${colors.border.default}`,
+                borderRadius: radius.lg,
+                transition: `border-color ${animation.duration.normal}`,
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = colors.border.focus)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = colors.border.default)}
+            >
+              <Zap size={12} style={{ color: colors.text.disabled }} className="shrink-0" />
               <input
                 value={configEndpoint}
                 onChange={(e) => setConfigEndpoint(e.target.value)}
                 placeholder="Custom endpoint URL (optional)"
-                className="flex-1 bg-transparent text-[12px] text-[#e6edf3] placeholder-[#30363d] outline-none font-mono"
+                className="flex-1 bg-transparent outline-none"
+                style={{
+                  fontSize: typography.fontSize.md,
+                  color: colors.text.primary,
+                  fontFamily: typography.fontFamily.mono,
+                }}
               />
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveProvider}
                 disabled={!configApiKey.trim()}
-                className={`
-                  px-3 py-1 rounded text-[11px] font-mono transition-all cursor-pointer
-                  ${configApiKey.trim()
-                    ? 'bg-[rgba(0,212,170,0.12)] text-[#00d4aa] hover:bg-[rgba(0,212,170,0.18)]'
-                    : 'bg-[rgba(0,212,170,0.04)] text-[#30363d] cursor-not-allowed'
-                  }
-                `}
+                className="px-3 py-1 transition-all cursor-pointer"
+                style={{
+                  borderRadius: radius.md,
+                  fontSize: typography.fontSize.base,
+                  fontFamily: typography.fontFamily.mono,
+                  background: configApiKey.trim() ? colors.accent.dim : colors.accent.subtle,
+                  color: configApiKey.trim() ? colors.accent.DEFAULT : colors.text.disabled,
+                  cursor: configApiKey.trim() ? 'pointer' : 'not-allowed',
+                }}
               >
-                Save & Connect
+                Save &amp; Connect
               </button>
               <button
                 onClick={handleTestConnection}
                 disabled={!configApiKey.trim()}
-                className="px-3 py-1 rounded text-[11px] font-mono text-[#484f58] hover:text-[#e6edf3] transition-colors cursor-pointer"
+                className="px-3 py-1 transition-colors cursor-pointer"
+                style={{
+                  borderRadius: radius.md,
+                  fontSize: typography.fontSize.base,
+                  fontFamily: typography.fontFamily.mono,
+                  color: colors.text.dim,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.text.primary)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.text.dim)}
               >
                 Test Connection
               </button>
@@ -288,65 +421,316 @@ export function AIChatPanel() {
         </div>
       )}
 
-      {/* Provider Status */}
-      {!showProviderConfig && (
-        <div className="px-3 py-2 border-b border-[rgba(0,212,170,0.04)]">
-          <div className="flex items-center gap-2 text-[11px]">
-            {hasConnectedProvider ? (
-              <>
-                <div className={`w-1.5 h-1.5 rounded-full ${currentProvider?.status === 'connected' ? 'bg-[#00d4aa]' : 'bg-[#f85149]'}`} />
-                <span className="text-[#30363d] font-mono">
-                  {currentProvider?.name || 'No provider'} · {currentProvider?.model || '—'}
-                </span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={10} className="text-[#ffa657]" />
-                <span className="text-[#ffa657] font-mono">No provider connected</span>
-                <button
-                  onClick={() => setShowProviderConfig(true)}
-                  className="text-[#00d4aa] hover:underline cursor-pointer"
+      {/* ─── Agent Card (when provider connected) ────────────── */}
+      {!showProviderConfig && hasConnectedProvider && (
+        <div
+          className="shrink-0 p-3 space-y-2"
+          style={{ borderBottom: `1px solid ${colors.border.default}` }}
+        >
+          {/* Agent identity row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 flex items-center justify-center shrink-0"
+                style={{
+                  background: colors.accent.dim,
+                  borderRadius: radius.md,
+                }}
+              >
+                <Bot size={12} style={{ color: colors.accent.DEFAULT }} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: typography.fontSize.md,
+                    fontFamily: typography.fontFamily.mono,
+                    fontWeight: typography.fontWeight.semibold,
+                    color: colors.text.primary,
+                    lineHeight: typography.lineHeight.tight,
+                  }}
                 >
-                  Configure
-                </button>
-              </>
-            )}
+                  {currentProvider?.model || currentProvider?.name || 'Agent'}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    style={{
+                      fontSize: typography.fontSize.xs,
+                      fontFamily: typography.fontFamily.mono,
+                      color: colors.text.dim,
+                    }}
+                  >
+                    {currentProvider?.name || 'Provider'}
+                  </span>
+                  <AgentStatusChip
+                    status={currentProvider?.status === 'connected' ? 'idle' : 'error'}
+                    size="sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <HUDBadge variant="accent" size="sm">Auto</HUDBadge>
+          </div>
+
+          {/* Context row */}
+          <div
+            className="space-y-1 px-2 py-1.5"
+            style={{
+              background: colors.bg.elevated,
+              borderRadius: radius.md,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span
+                style={{
+                  fontSize: typography.fontSize.xs,
+                  fontFamily: typography.fontFamily.mono,
+                  color: colors.text.disabled,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Context
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <FileCode size={10} style={{ color: colors.text.dim }} />
+              <span
+                style={{
+                  fontSize: typography.fontSize.sm,
+                  fontFamily: typography.fontFamily.mono,
+                  color: activeTab ? colors.text.secondary : colors.text.disabled,
+                }}
+              >
+                {activeTab ? activeTab.name : 'No file open'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span style={{ fontSize: typography.fontSize.xs, color: colors.text.dim }}>⌥</span>
+              <span
+                style={{
+                  fontSize: typography.fontSize.sm,
+                  fontFamily: typography.fontFamily.mono,
+                  color: workspaceName ? colors.text.secondary : colors.text.disabled,
+                }}
+              >
+                {workspaceName || 'No repo'}{gitBranch ? ` · ${gitBranch}` : ''}
+              </span>
+            </div>
+          </div>
+
+          {/* Permissions row */}
+          <div className="flex flex-wrap gap-1">
+            <ToolPermissionBadge permission="Read" granted={hasConnectedProvider} />
+            <ToolPermissionBadge permission="Write" granted={editorSettings.autoSave} />
+            <ToolPermissionBadge permission="Shell" granted={false} />
+            <ToolPermissionBadge permission="Git" granted={!!gitBranch} />
+            <ToolPermissionBadge permission="Network" granted={false} />
           </div>
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar" role="log" aria-live="polite" aria-label="Chat messages">
+      {/* ─── Provider Status (when no provider connected & not in config) ── */}
+      {!showProviderConfig && !hasConnectedProvider && (
+        <div
+          className="px-3 py-2"
+          style={{ borderBottom: `1px solid ${colors.border.muted}` }}
+        >
+          <div className="flex items-center gap-2" style={{ fontSize: typography.fontSize.base }}>
+            <AlertTriangle size={10} style={{ color: colors.warning.DEFAULT }} />
+            <span
+              style={{
+                color: colors.warning.DEFAULT,
+                fontFamily: typography.fontFamily.mono,
+              }}
+            >
+              No provider connected
+            </span>
+            <button
+              onClick={() => setShowProviderConfig(true)}
+              className="cursor-pointer"
+              style={{
+                color: colors.accent.DEFAULT,
+                fontSize: typography.fontSize.base,
+                fontFamily: typography.fontFamily.mono,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              Configure
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Agent Activity Timeline (when provider connected) ── */}
+      {!showProviderConfig && hasConnectedProvider && recentMessages.length > 0 && (
+        <div
+          className="shrink-0 px-3 py-2"
+          style={{ borderBottom: `1px solid ${colors.border.default}` }}
+        >
+          <div
+            className="mb-1"
+            style={{
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.mono,
+              color: colors.text.disabled,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Activity
+          </div>
+          <div className="space-y-0 max-h-32 overflow-y-auto">
+            {recentMessages.map((msg) => (
+              <AgentActivityRow
+                key={msg.id}
+                icon={
+                  msg.role === 'user' ? (
+                    <span style={{ fontSize: typography.fontSize.sm }}>→</span>
+                  ) : msg.content.startsWith('**Error:**') ? (
+                    <span style={{ fontSize: typography.fontSize.sm }}>!</span>
+                  ) : (
+                    <span style={{ fontSize: typography.fontSize.sm }}>✓</span>
+                  )
+                }
+                label={
+                  msg.content.length > 40
+                    ? msg.content.slice(0, 40).replace(/\*\*/g, '') + '…'
+                    : msg.content.replace(/\*\*/g, '')
+                }
+                time={relativeTime(msg.timestamp)}
+                status={
+                  msg.role === 'user'
+                    ? 'pending'
+                    : msg.content.startsWith('**Error:**')
+                      ? 'error'
+                      : 'success'
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Quick Actions (when provider connected) ─────────── */}
+      {!showProviderConfig && hasConnectedProvider && (
+        <div
+          className="shrink-0 px-3 py-2"
+          style={{ borderBottom: `1px solid ${colors.border.default}` }}
+        >
+          <div
+            className="mb-1.5"
+            style={{
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.mono,
+              color: colors.text.disabled,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Quick Actions
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {quickActions.map((action) => {
+              const Icon = action.icon
+              return (
+                <button
+                  key={action.label}
+                  onClick={() => setInput(action.prompt)}
+                  className="flex items-center gap-1.5 px-2 py-1 transition-colors cursor-pointer"
+                  style={{
+                    borderRadius: radius.md,
+                    fontSize: typography.fontSize.sm,
+                    fontFamily: typography.fontFamily.mono,
+                    color: colors.text.dim,
+                    background: 'transparent',
+                    border: `1px solid ${colors.border.default}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = colors.accent.subtle
+                    e.currentTarget.style.color = colors.accent.DEFAULT
+                    e.currentTarget.style.borderColor = colors.accent.dim
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = colors.text.dim
+                    e.currentTarget.style.borderColor = colors.border.default
+                  }}
+                >
+                  <Icon size={10} className="shrink-0" />
+                  <span className="truncate">{action.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Messages Area ───────────────────────────────────── */}
+      <div
+        className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar"
+        role="log"
+        aria-live="polite"
+        aria-label="Chat messages"
+      >
         {chatMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-[#30363d] text-center py-8">
-            <Bot size={40} className="mb-3 text-[#00d4aa]/20" aria-hidden="true" />
-            <p className="text-[13px] font-mono text-[#484f58]">AI Assistant</p>
+          <div
+            className="flex flex-col items-center justify-center h-full text-center py-8"
+            style={{ color: colors.text.disabled }}
+          >
+            <Bot
+              size={40}
+              className="mb-3"
+              style={{ color: colors.accent.dim, opacity: 0.6 }}
+              aria-hidden="true"
+            />
+            <p
+              style={{
+                fontSize: typography.fontSize.lg,
+                fontFamily: typography.fontFamily.mono,
+                color: colors.text.dim,
+              }}
+            >
+              Agent Control
+            </p>
             {!hasConnectedProvider ? (
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] text-[#ffa657]">Connect an AI provider to get started</p>
+                <p
+                  style={{
+                    fontSize: typography.fontSize.base,
+                    color: colors.warning.DEFAULT,
+                  }}
+                >
+                  Connect an AI provider to get started
+                </p>
                 <button
                   onClick={() => setShowProviderConfig(true)}
-                  className="px-3 py-1 text-[10px] font-mono border border-[rgba(0,212,170,0.12)] rounded text-[#00d4aa] hover:bg-[rgba(0,212,170,0.06)] cursor-pointer transition-colors"
+                  className="px-3 py-1 cursor-pointer transition-colors"
+                  style={{
+                    fontSize: typography.fontSize.sm,
+                    fontFamily: typography.fontFamily.mono,
+                    border: `1px solid ${colors.accent.dim}`,
+                    borderRadius: radius.md,
+                    color: colors.accent.DEFAULT,
+                    background: 'transparent',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = colors.accent.subtle)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <Plus size={10} className="inline mr-1" />
                   Add Provider
                 </button>
               </div>
             ) : (
-              <>
-                <p className="text-[11px] mt-1">Ask me anything about your code</p>
-                <div className="flex gap-2 mt-4">
-                  {['Explain code', 'Find bugs', 'Optimize'].map((action) => (
-                    <button
-                      key={action}
-                      onClick={() => setInput(action === 'Explain code' ? 'Explain this code' : action === 'Find bugs' ? 'Find bugs in my code' : 'Optimize performance')}
-                      className="px-3 py-1 text-[10px] font-mono border border-[rgba(0,212,170,0.12)] rounded text-[#00d4aa]/60 hover:bg-[rgba(0,212,170,0.06)] hover:text-[#00d4aa] cursor-pointer transition-colors"
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <p
+                className="mt-1"
+                style={{
+                  fontSize: typography.fontSize.base,
+                  color: colors.text.disabled,
+                }}
+              >
+                Ask the agent to work on your code
+              </p>
             )}
           </div>
         )}
@@ -356,23 +740,47 @@ export function AIChatPanel() {
             className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="w-6 h-6 rounded bg-[rgba(0,212,170,0.08)] flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
-                <Bot size={12} className="text-[#00d4aa]" />
+              <div
+                className="w-6 h-6 flex items-center justify-center shrink-0 mt-0.5"
+                style={{
+                  background: colors.accent.dim,
+                  borderRadius: radius.md,
+                }}
+                aria-hidden="true"
+              >
+                <Bot size={12} style={{ color: colors.accent.DEFAULT }} />
               </div>
             )}
             <div
-              className={`
-                max-w-[85%] rounded-lg px-3 py-2 text-[12px] font-mono leading-relaxed
-                ${msg.role === 'user'
-                  ? 'bg-[rgba(0,212,170,0.08)] text-[#e6edf3]'
+              style={{
+                maxWidth: '85%',
+                borderRadius: radius.xl,
+                padding: `${spacing[2]} ${spacing[3]}`,
+                fontSize: typography.fontSize.md,
+                fontFamily: typography.fontFamily.mono,
+                lineHeight: typography.lineHeight.relaxed,
+                ...(msg.role === 'user'
+                  ? { background: colors.accent.dim, color: colors.text.primary }
                   : msg.content.startsWith('**Error:**')
-                    ? 'bg-[#f85149]/5 border border-[rgba(248,81,73,0.15)] text-[#f85149]'
-                    : 'bg-[#0d1117] border border-[rgba(0,212,170,0.08)] text-[#6e7681]'
-                }
-              `}
+                    ? {
+                        background: colors.danger.dim,
+                        border: `1px solid ${colors.danger.dim}`,
+                        color: colors.danger.DEFAULT,
+                      }
+                    : {
+                        background: colors.bg.elevated,
+                        border: `1px solid ${colors.border.default}`,
+                        color: colors.text.muted,
+                      }),
+              }}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-invert prose-sm max-w-none [&_pre]:bg-[#080c12] [&_pre]:rounded [&_pre]:p-2 [&_code]:text-[#00d4aa] [&_code]:text-[11px] [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5">
+                <div
+                  className="prose prose-invert prose-sm max-w-none"
+                  style={{
+                    ['--tw-prose-pre-bg' as string]: colors.bg.root,
+                  }}
+                >
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -383,10 +791,27 @@ export function AIChatPanel() {
         ))}
         {isAiLoading && (
           <div className="flex gap-2 items-start">
-            <div className="w-6 h-6 rounded bg-[rgba(0,212,170,0.08)] flex items-center justify-center shrink-0" aria-hidden="true">
-              <Loader2 size={12} className="text-[#00d4aa] animate-spin" />
+            <div
+              className="w-6 h-6 flex items-center justify-center shrink-0"
+              style={{
+                background: colors.accent.dim,
+                borderRadius: radius.md,
+              }}
+              aria-hidden="true"
+            >
+              <Loader2 size={12} style={{ color: colors.accent.DEFAULT }} className="animate-spin" />
             </div>
-            <div className="bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded-lg px-3 py-2 text-[12px] text-[#30363d] font-mono">
+            <div
+              style={{
+                background: colors.bg.elevated,
+                border: `1px solid ${colors.border.default}`,
+                borderRadius: radius.xl,
+                padding: `${spacing[2]} ${spacing[3]}`,
+                fontSize: typography.fontSize.md,
+                fontFamily: typography.fontFamily.mono,
+                color: colors.text.disabled,
+              }}
+            >
               Thinking...
             </div>
           </div>
@@ -394,9 +819,22 @@ export function AIChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-3 border-t border-[rgba(0,212,170,0.08)]">
-        <div className="flex items-end gap-2 bg-[#0d1117] border border-[rgba(0,212,170,0.08)] rounded-lg px-3 py-2 focus-within:border-[rgba(0,212,170,0.25)] transition-colors">
+      {/* ─── Input Area ──────────────────────────────────────── */}
+      <div
+        className="p-3"
+        style={{ borderTop: `1px solid ${colors.border.default}` }}
+      >
+        <div
+          className="flex items-end gap-2 px-3 py-2"
+          style={{
+            background: colors.bg.elevated,
+            border: `1px solid ${colors.border.default}`,
+            borderRadius: radius.xl,
+            transition: `border-color ${animation.duration.normal}`,
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = colors.border.focus)}
+          onBlur={(e) => (e.currentTarget.style.borderColor = colors.border.default)}
+        >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -406,23 +844,45 @@ export function AIChatPanel() {
                 handleSend()
               }
             }}
-            placeholder={hasConnectedProvider ? `Ask ${currentProvider?.name || 'AI'}...` : 'Configure an AI provider first...'}
+            placeholder={
+              hasConnectedProvider
+                ? `Ask ${currentProvider?.name || 'Agent'}...`
+                : 'Configure an AI provider first...'
+            }
             rows={1}
             disabled={!hasConnectedProvider}
-            aria-label="AI chat input"
-            className="flex-1 bg-transparent text-[12px] text-[#e6edf3] placeholder-[#30363d] outline-none font-mono resize-none min-h-[20px] max-h-[80px] disabled:opacity-50"
+            aria-label="Agent chat input"
+            className="flex-1 bg-transparent outline-none resize-none min-h-[20px] max-h-[80px] disabled:opacity-50"
+            style={{
+              fontSize: typography.fontSize.md,
+              color: colors.text.primary,
+              fontFamily: typography.fontFamily.mono,
+            }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isAiLoading || !hasConnectedProvider}
             aria-label="Send message"
-            className={`
-              p-1 rounded transition-all cursor-pointer
-              ${input.trim() && !isAiLoading && hasConnectedProvider
-                ? 'text-[#00d4aa] hover:bg-[rgba(0,212,170,0.08)]'
-                : 'text-[#30363d] cursor-not-allowed'
+            className="p-1 rounded transition-all cursor-pointer"
+            style={{
+              color:
+                input.trim() && !isAiLoading && hasConnectedProvider
+                  ? colors.accent.DEFAULT
+                  : colors.text.disabled,
+              cursor:
+                input.trim() && !isAiLoading && hasConnectedProvider
+                  ? 'pointer'
+                  : 'not-allowed',
+              borderRadius: radius.md,
+            }}
+            onMouseEnter={(e) => {
+              if (input.trim() && !isAiLoading && hasConnectedProvider) {
+                e.currentTarget.style.background = colors.accent.dim
               }
-            `}
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+            }}
           >
             <Send size={14} />
           </button>

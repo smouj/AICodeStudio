@@ -2,8 +2,8 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 // ─── Existing Types (from original store) ───────────────────
 
-export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos' | 'docker' | 'database' | 'collaboration' | 'lsp' | 'voice' | 'themes' | 'canvas' | 'whiteboard'
-export type BottomPanel = 'terminal' | 'output' | 'problems' | 'debug'
+export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos' | 'docker' | 'database' | 'collaboration' | 'lsp' | 'voice' | 'themes' | 'canvas' | 'whiteboard' | 'terminal'
+export type BottomPanel = 'terminal' | 'output' | 'problems' | 'debug' | 'agentlogs' | 'toolcalls' | 'approvals'
 
 export interface FileNode {
   name: string

@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, Component } from 'react'
-import { X, Circle, Plus, FolderOpen } from 'lucide-react'
+import { useCallback, Component, useEffect, useState } from 'react'
+import { X, Circle, Plus, FolderOpen, Terminal, Container, Code2, GitBranch, Database, Bot } from 'lucide-react'
 import { useIDEStore } from '@/store/ide-store'
 import dynamic from 'next/dynamic'
 import type { editor } from 'monaco-editor'
+import { colors, typography, radius } from '@/components/hud/tokens'
+import { AgentStatusChip, HUDBadge } from '@/components/hud/hud-primitives'
+import { APP_VERSION_DISPLAY } from '@/lib/version'
 
 // Error Boundary for Monaco Editor
 class EditorErrorBoundary extends Component<
@@ -151,11 +154,27 @@ export function EditorArea() {
     })
   }, [setCursorPosition])
 
+  // Welcome screen: Runtime capabilities state
+  const workspaceName = useIDEStore((s) => s.workspaceName)
+  const gitBranch = useIDEStore((s) => s.gitBranch)
+  const fileContents = useIDEStore((s) => s.fileContents)
+  const [runtimeCaps, setRuntimeCaps] = useState<Record<string, { status: string }> | null>(null)
+
+  useEffect(() => {
+    fetch('/api/capabilities')
+      .then((r) => r.json())
+      .then((data) => setRuntimeCaps(data.capabilities))
+      .catch(() => {})
+  }, [])
+
   if (openTabs.length === 0) {
+    const fileCount = Object.keys(fileContents).length
+    const runtimeItems = runtimeCaps ? Object.entries(runtimeCaps).slice(0, 6) : []
+
     return (
-      <div className="flex-1 bg-[#080c12] flex items-center justify-center relative overflow-hidden" role="main" aria-label="Welcome screen">
-        {/* ASCII Art Background */}
-        <div className="absolute inset-0 opacity-[0.03] font-mono text-[8px] leading-tight text-[#00d4aa] select-none overflow-hidden whitespace-pre p-4 ascii-bg" aria-hidden="true">
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden" style={{ background: colors.bg.panel }} role="main" aria-label="Welcome screen">
+        {/* Subtle ASCII Art Background */}
+        <div className="absolute inset-0 opacity-[0.02] font-mono text-[8px] leading-tight select-none overflow-hidden whitespace-pre p-4 ascii-bg" style={{ color: colors.accent.DEFAULT }} aria-hidden="true">
 {`\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2557   \u2588\u2588\u2557
 \u255A\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557
   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2557     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2557  \u255A\u2550\u2550\u2588\u2588\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
@@ -164,42 +183,83 @@ export function EditorArea() {
   \u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D   \u255A\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u2550\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D`}
         </div>
 
-        {/* Decorative grid lines */}
-        <div className="absolute inset-0 opacity-[0.015]" aria-hidden="true" style={{
-          backgroundImage: 'linear-gradient(rgba(0,212,170,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,170,0.3) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }} />
-
         {/* Welcome Content */}
-        <div className="relative z-10 text-center">
-          <div className="text-[#00d4aa]/20 text-[80px] font-bold font-mono leading-none mb-2 pulse-accent" aria-hidden="true">
+        <div className="relative z-10 text-center max-w-md">
+          {/* Title */}
+          <div style={{ color: `${colors.accent.DEFAULT}30`, fontSize: '48px', fontWeight: 700, fontFamily: typography.fontFamily.mono, lineHeight: 1, marginBottom: '8px' }} aria-hidden="true">
             {'</>'}
           </div>
-          <h1 className="text-[#e6edf3] text-2xl font-mono font-semibold mb-1">AICodeStudio</h1>
-          <p className="text-[#484f58] text-sm font-mono mb-8">Next-Generation AI-Powered IDE</p>
-          <div className="flex flex-col gap-2.5 text-[12px] font-mono">
+          <h1 style={{ color: colors.text.primary, fontSize: '24px', fontWeight: 600, fontFamily: typography.fontFamily.mono, marginBottom: '4px' }}>AICodeStudio</h1>
+          <p style={{ color: colors.text.dim, fontSize: typography.fontSize.lg, fontFamily: typography.fontFamily.mono, marginBottom: '24px' }}>AI-native workspace for code agents</p>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2" style={{ fontSize: typography.fontSize.md, fontFamily: typography.fontFamily.mono }}>
             {[
-              { label: 'Create a File', shortcut: 'Terminal: touch', panel: 'explorer' as const },
-              { label: 'Clone Repository', shortcut: 'Ctrl+Shift+G', panel: 'github' as const },
-              { label: 'Connect AI Provider', shortcut: 'Ctrl+Shift+A', panel: 'ai' as const },
+              { label: 'Open / Create File', shortcut: 'Explorer', panel: 'explorer' as const },
+              { label: 'Clone Repository', shortcut: 'GitHub', panel: 'github' as const },
+              { label: 'Connect AI Provider', shortcut: 'Agent', panel: 'ai' as const },
+              { label: 'Open Agent Control', shortcut: 'Ctrl+Shift+A', panel: 'ai' as const },
             ].map((action) => (
               <button
                 key={action.label}
                 onClick={() => setActiveSidebarPanel(action.panel)}
-                className="group flex items-center gap-3 text-[#484f58] hover:text-[#00d4aa] transition-colors cursor-pointer mx-auto"
+                className="group flex items-center gap-3 transition-colors cursor-pointer mx-auto"
+                style={{ color: colors.text.dim }}
+                onMouseEnter={(e) => e.currentTarget.style.color = colors.accent.DEFAULT}
+                onMouseLeave={(e) => e.currentTarget.style.color = colors.text.dim}
               >
-                <span className="text-[#00d4aa]/40 group-hover:text-[#00d4aa] transition-colors" aria-hidden="true">{'\u2192'}</span>
+                <span style={{ color: `${colors.accent.DEFAULT}60` }} className="group-hover:text-[--accent] transition-colors" aria-hidden="true">{'\u2192'}</span>
                 <span>{action.label}</span>
-                <span className="text-[#30363d] text-[10px]">{action.shortcut}</span>
+                <span style={{ color: colors.text.disabled, fontSize: typography.fontSize.sm }}>{action.shortcut}</span>
               </button>
             ))}
           </div>
 
-          {/* Version badge */}
-          <div className="mt-10 flex items-center justify-center gap-2">
-            <div className="h-px w-8 bg-[#30363d]" aria-hidden="true" />
-            <span className="text-[10px] text-[#30363d] font-mono">v2.0.0</span>
-            <div className="h-px w-8 bg-[#30363d]" aria-hidden="true" />
+          {/* Runtime Health */}
+          <div className="mt-6 text-left" style={{ fontSize: typography.fontSize.base, fontFamily: typography.fontFamily.mono }}>
+            <div className="uppercase tracking-wider mb-2 font-semibold" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>Runtime Health</div>
+            <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+              {[
+                { name: 'Terminal', icon: Terminal, status: runtimeCaps?.terminal?.status },
+                { name: 'Docker', icon: Container, status: runtimeCaps?.docker?.status },
+                { name: 'LSP', icon: Code2, status: runtimeCaps?.lsp?.status },
+                { name: 'Git', icon: GitBranch, status: runtimeCaps?.git?.status },
+                { name: 'Database', icon: Database, status: runtimeCaps?.database?.status },
+                { name: 'AI', icon: Bot, status: runtimeCaps?.ai?.status },
+              ].map((item) => {
+                const Icon = item.icon
+                const chipStatus = item.status === 'enabled' ? 'active' as const : item.status === 'simulated' ? 'simulated' as const : item.status === 'disabled' ? 'off' as const : 'unavailable' as const
+                return (
+                  <div key={item.name} className="flex items-center justify-between gap-1">
+                    <span className="flex items-center gap-1" style={{ color: colors.text.dim }}>
+                      <Icon size={10} />
+                      {item.name}
+                    </span>
+                    <AgentStatusChip status={chipStatus} size="sm" />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Workspace Info */}
+          <div className="mt-4 text-left" style={{ fontSize: typography.fontSize.base, fontFamily: typography.fontFamily.mono }}>
+            <div className="uppercase tracking-wider mb-2 font-semibold" style={{ color: colors.text.dim, fontSize: typography.fontSize.sm }}>Workspace</div>
+            {workspaceName ? (
+              <div className="space-y-0.5" style={{ color: colors.text.dim }}>
+                <div>{workspaceName}</div>
+                <div>{fileCount} file{fileCount !== 1 ? 's' : ''} · branch: {gitBranch}</div>
+              </div>
+            ) : (
+              <div style={{ color: colors.text.disabled }}>No workspace open</div>
+            )}
+          </div>
+
+          {/* Version */}
+          <div className="mt-6 flex items-center justify-center gap-2">
+            <div style={{ height: '1px', width: '32px', background: colors.text.disabled }} aria-hidden="true" />
+            <HUDBadge variant="default" size="sm">{APP_VERSION_DISPLAY}</HUDBadge>
+            <div style={{ height: '1px', width: '32px', background: colors.text.disabled }} aria-hidden="true" />
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useMemo } from 'react'
 import { ActivityBar } from './activity-bar'
 import { SidebarPanel } from './sidebar-panel'
 import { EditorArea } from './editor-area'
@@ -9,8 +9,18 @@ import { StatusBar } from './status-bar'
 import { CommandPalette } from './command-palette'
 import { useIDEStore } from '@/store/ide-store'
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { HUDTopBar, HUDBadge, AgentStatusChip, HUDSeparator } from '@/components/hud/hud-primitives'
+import { colors, typography, radius } from '@/components/hud/tokens'
+import { APP_VERSION_DISPLAY } from '@/lib/version'
 
-// Notification Toast Component
+// ─── Agent Mode type (visual only) ────────────────────────────
+type AgentMode = 'Ask' | 'Plan' | 'Build' | 'Review' | 'Auto'
+const AGENT_MODES: AgentMode[] = ['Ask', 'Plan', 'Build', 'Review', 'Auto']
+
+type TrustMode = 'Local' | 'Sandbox' | 'Server' | 'Demo'
+const TRUST_MODES: TrustMode[] = ['Local', 'Sandbox', 'Server', 'Demo']
+
+// ─── Notification Toast Component ─────────────────────────────
 function NotificationToasts() {
   const notifications = useIDEStore((s) => s.notifications)
   const removeNotification = useIDEStore((s) => s.removeNotification)
@@ -54,7 +64,7 @@ function NotificationToasts() {
   )
 }
 
-// Resize Handle Component
+// ─── Resize Handle Component ──────────────────────────────────
 function ResizeHandle({
   onResize,
   direction,
@@ -115,6 +125,227 @@ function ResizeHandle({
   )
 }
 
+// ─── Mission Bar (replaces Title Bar) ─────────────────────────
+function MissionBar() {
+  // Store selectors for real agent-first info
+  const workspaceName = useIDEStore((s) => s.workspaceName)
+  const gitBranch = useIDEStore((s) => s.gitBranch)
+  const aiProviders = useIDEStore((s) => s.aiProviders)
+  const activeAiProvider = useIDEStore((s) => s.activeAiProvider)
+  const isAiLoading = useIDEStore((s) => s.isAiLoading)
+
+  // Derive active provider info
+  const activeProvider = useMemo(
+    () => aiProviders.find((p) => p.id === activeAiProvider),
+    [aiProviders, activeAiProvider],
+  )
+
+  const providerName = activeProvider?.name || 'No provider'
+  const providerStatus = activeProvider?.status || 'disconnected'
+
+  // Derive agent name from active provider model or name
+  const agentName = activeProvider ? (activeProvider.model || activeProvider.name) : 'No agent'
+
+  // Derive agent mode from current state (visual only)
+  const agentMode: AgentMode = 'Auto'
+
+  // Derive trust mode from available context (visual display)
+  const trustMode: TrustMode = 'Local'
+
+  // Derive compact state indicator
+  const stateIndicator: 'Ready' | 'Running' | 'Waiting' | 'Error' = useMemo(() => {
+    if (providerStatus === 'error') return 'Error'
+    if (isAiLoading) return 'Running'
+    if (providerStatus === 'connecting') return 'Waiting'
+    return 'Ready'
+  }, [isAiLoading, providerStatus])
+
+  // Map state indicator to AgentStatusChip status
+  const chipStatus = useMemo(() => {
+    switch (stateIndicator) {
+      case 'Ready': return 'idle' as const
+      case 'Running': return 'active' as const
+      case 'Waiting': return 'waiting' as const
+      case 'Error': return 'error' as const
+    }
+  }, [stateIndicator])
+
+  // Connection status dot color
+  const connectionDotColor = useMemo(() => {
+    switch (providerStatus) {
+      case 'connected': return colors.success.DEFAULT
+      case 'connecting': return colors.warning.DEFAULT
+      case 'error': return colors.danger.DEFAULT
+      case 'disconnected':
+      default: return colors.text.disabled
+    }
+  }, [providerStatus])
+
+  return (
+    <HUDTopBar role="banner" aria-label="Mission bar">
+      {/* Left side: Logo + workspace info + agent info */}
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Logo + App name */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <svg viewBox="0 0 512 512" className="w-3.5 h-3.5 shrink-0" fill="none" aria-hidden="true">
+            <path d="M190 176 L120 256 L190 336" stroke={colors.accent.DEFAULT} strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M322 176 L392 256 L322 336" stroke={colors.accent.DEFAULT} strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="290" y1="160" x2="222" y2="352" stroke={colors.accent.DEFAULT} strokeWidth="20" strokeLinecap="round"/>
+          </svg>
+          <span
+            className="font-semibold tracking-tight shrink-0"
+            style={{
+              color: colors.text.primary,
+              fontSize: typography.fontSize.md,
+              fontFamily: typography.fontFamily.mono,
+            }}
+          >
+            AICodeStudio
+          </span>
+        </div>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Workspace name */}
+        <span
+          className="shrink-0 truncate max-w-[120px]"
+          style={{
+            color: workspaceName ? colors.text.secondary : colors.text.disabled,
+            fontSize: typography.fontSize.base,
+            fontFamily: typography.fontFamily.mono,
+          }}
+          title={workspaceName || 'No workspace'}
+        >
+          {workspaceName || 'No workspace'}
+        </span>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Git branch */}
+        <span
+          className="shrink-0 flex items-center gap-1"
+          style={{
+            color: colors.text.muted,
+            fontSize: typography.fontSize.base,
+            fontFamily: typography.fontFamily.mono,
+          }}
+        >
+          {/* Branch icon */}
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ color: colors.text.dim }}>
+            <path d="M6 3.5v6.018a2.5 2.5 0 1 1-1 0V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4.018a2.5 2.5 0 1 1-1 0V4.5H6Z" fill="currentColor"/>
+          </svg>
+          {gitBranch || 'main'}
+        </span>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Active agent name */}
+        <span
+          className="shrink-0 truncate max-w-[100px]"
+          style={{
+            color: agentName !== 'No agent' ? colors.accent.DEFAULT : colors.text.disabled,
+            fontSize: typography.fontSize.base,
+            fontFamily: typography.fontFamily.mono,
+          }}
+          title={agentName}
+        >
+          {agentName}
+        </span>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Agent mode selector (visual only) */}
+        <div
+          className="flex items-center shrink-0 gap-0.5"
+          style={{ fontSize: typography.fontSize.xs, fontFamily: typography.fontFamily.mono }}
+        >
+          {AGENT_MODES.map((mode) => (
+            <span
+              key={mode}
+              className="px-1 rounded-sm"
+              style={{
+                color: mode === agentMode ? colors.accent.DEFAULT : colors.text.disabled,
+                background: mode === agentMode ? colors.accent.subtle : 'transparent',
+              }}
+            >
+              {mode}
+            </span>
+          ))}
+        </div>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Trust mode (visual display) */}
+        <div
+          className="flex items-center shrink-0 gap-0.5"
+          style={{ fontSize: typography.fontSize.xs, fontFamily: typography.fontFamily.mono }}
+        >
+          {TRUST_MODES.map((mode) => (
+            <span
+              key={mode}
+              className="px-1 rounded-sm"
+              style={{
+                color: mode === trustMode ? colors.info.DEFAULT : colors.text.disabled,
+                background: mode === trustMode ? colors.info.dim : 'transparent',
+              }}
+            >
+              {mode}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Right side: Provider + state + version */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Active AI provider + connection status dot */}
+        <div
+          className="flex items-center gap-1.5"
+          style={{
+            fontSize: typography.fontSize.base,
+            fontFamily: typography.fontFamily.mono,
+          }}
+        >
+          <span
+            className="shrink-0 rounded-full"
+            style={{
+              width: '5px',
+              height: '5px',
+              background: connectionDotColor,
+            }}
+            title={`Provider status: ${providerStatus}`}
+          />
+          <span
+            className="truncate max-w-[100px]"
+            style={{
+              color: providerStatus === 'connected' ? colors.text.secondary : colors.text.disabled,
+            }}
+            title={providerName}
+          >
+            {providerName}
+          </span>
+        </div>
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Compact state indicator */}
+        <AgentStatusChip
+          status={chipStatus}
+          label={stateIndicator}
+          size="sm"
+        />
+
+        <HUDSeparator orientation="vertical" />
+
+        {/* Version badge */}
+        <HUDBadge variant="default" size="sm">
+          {APP_VERSION_DISPLAY}
+        </HUDBadge>
+      </div>
+    </HUDTopBar>
+  )
+}
+
+// ─── Main IDE Layout ──────────────────────────────────────────
 export function IDEMain() {
   const setCommandPaletteOpen = useIDEStore((s) => s.setCommandPaletteOpen)
   const setSidebarWidth = useIDEStore((s) => s.setSidebarWidth)
@@ -146,40 +377,21 @@ export function IDEMain() {
   }, [setPwaInstallPrompt])
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#080c12] overflow-hidden">
+    <div className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: colors.bg.root }}>
       {/* Skip to content link for accessibility */}
-      <a href="#editor-area" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#00d4aa] focus:text-[#080c12]">
+      <a
+        href="#editor-area"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2"
+        style={{
+          background: colors.accent.DEFAULT,
+          color: colors.bg.root,
+        }}
+      >
         Skip to editor
       </a>
 
-      {/* Title Bar */}
-      <div className="h-9 bg-[#050810] border-b border-[rgba(0,212,170,0.08)] flex items-center justify-between px-4 shrink-0 select-none" role="banner">
-        <div className="flex items-center gap-3">
-          {/* Traffic Lights */}
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-[#ff5f57]" aria-label="Close" />
-            <div className="w-3 h-3 rounded-full bg-[#febc2e]" aria-label="Minimize" />
-            <div className="w-3 h-3 rounded-full bg-[#28c840]" aria-label="Maximize" />
-          </div>
-          {/* Logo + Title */}
-          <div className="flex items-center gap-2 ml-4">
-            <svg viewBox="0 0 512 512" className="w-4 h-4" fill="none" aria-hidden="true">
-              <path d="M190 176 L120 256 L190 336" stroke="#00d4aa" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M322 176 L392 256 L322 336" stroke="#00d4aa" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
-              <line x1="290" y1="160" x2="222" y2="352" stroke="#00d4aa" strokeWidth="20" strokeLinecap="round"/>
-            </svg>
-            <span className="text-[#e6edf3] text-[12px] font-mono font-semibold tracking-tight">AICodeStudio</span>
-            <span className="text-[#30363d] text-[10px] font-mono ml-0.5">v2.0.0</span>
-          </div>
-        </div>
-        {/* Menu Bar */}
-        <nav className="flex items-center gap-4 text-[11px] text-[#30363d] font-mono" aria-label="Main menu">
-          {['File', 'Edit', 'View', 'AI', 'Git', 'Help'].map((item) => (
-            <button key={item} className="hover:text-[#8b949e] cursor-pointer transition-colors">{item}</button>
-          ))}
-        </nav>
-        <div className="w-20" />
-      </div>
+      {/* Mission Bar (replaces Title Bar) */}
+      <MissionBar />
 
       {/* Main Content */}
       <div className="flex-1 flex min-h-0">
