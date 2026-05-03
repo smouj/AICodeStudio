@@ -21,6 +21,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://smouj.github.io/AICodeStudio"),
   title: "AICodeStudio — AI-Powered IDE",
   description: "Next-generation open-source AI-powered IDE with OpenClaw & Hermes integration, GitHub connectivity, Monaco Editor, and PWA desktop installation. Code smarter, faster, with AI by your side.",
   keywords: [
