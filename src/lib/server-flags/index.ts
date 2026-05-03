@@ -48,7 +48,54 @@ function getDockerCapability(): CapabilityStatus {
     }
   }
 
-  return { enabled: true, status: 'enabled' }
+  // Check TLS safety (mirrors docker/route.ts isDockerTlsSafe logic)
+  const isSafeTransport = host.startsWith('unix://') || host.startsWith('/') || host.startsWith('https://')
+
+  if (isSafeTransport) {
+    return { enabled: true, status: 'enabled', reason: 'Docker is enabled with a secure connection.' }
+  }
+
+  // Unencrypted TCP — check if localhost vs remote
+  const isTcp = host.startsWith('tcp://') || host.startsWith('http://')
+  if (!isTcp) {
+    // Unknown protocol — could be a parseable host:port
+    return { enabled: true, status: 'enabled', reason: 'Docker is enabled.' }
+  }
+
+  try {
+    const url = new URL(host.startsWith('tcp://') ? host.replace('tcp://', 'http://') : host)
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1'
+
+    if (!isLocal) {
+      // Non-localhost unencrypted TCP is ALWAYS blocked
+      return {
+        enabled: false,
+        status: 'unavailable',
+        reason: `Docker is using unencrypted TCP on ${url.host} (non-localhost). This is blocked for security. Use HTTPS, SSH tunnel, or a Unix socket.`,
+      }
+    }
+
+    // Localhost unencrypted TCP requires explicit opt-in
+    if (process.env.AICODE_DOCKER_ALLOW_UNSAFE !== 'true') {
+      return {
+        enabled: false,
+        status: 'unavailable',
+        reason: `Docker is using unencrypted TCP on ${url.host}. Set AICODE_DOCKER_ALLOW_UNSAFE=true to acknowledge the risk, or use a Unix socket / HTTPS.`,
+      }
+    }
+
+    return {
+      enabled: true,
+      status: 'enabled',
+      reason: 'Docker is enabled with unencrypted localhost TCP (AICODE_DOCKER_ALLOW_UNSAFE=true). Consider using a Unix socket or HTTPS for production.',
+    }
+  } catch {
+    return {
+      enabled: false,
+      status: 'unavailable',
+      reason: 'Cannot parse DOCKER_HOST URL. Use tcp://, unix://, or https:// format.',
+    }
+  }
 }
 
 function getTerminalCapability(): CapabilityStatus {

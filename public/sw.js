@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aicodestudio-v1.1';
+const CACHE_NAME = 'aicodestudio-v1.2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -31,7 +31,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: stale-while-revalidate with cache-first for static assets
+// Fetch: cache-first for static assets, network-only for API
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -42,6 +42,25 @@ self.addEventListener('fetch', (event) => {
   if (!request.url.startsWith('http')) return;
 
   const url = new URL(request.url);
+
+  // ── NEVER cache API routes ──
+  // API responses must always be fresh to avoid serving stale/incorrect data.
+  // This is especially critical for:
+  //   - Database queries (could serve outdated results)
+  //   - Docker/container status (could show wrong state)
+  //   - AI responses (must be real-time)
+  //   - Collaboration rooms (volatile in-memory data)
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request).catch(() => {
+        return new Response(JSON.stringify({ error: 'Offline', success: false }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      })
+    );
+    return;
+  }
 
   // Cache-first for static assets (JS, CSS, images, fonts)
   if (
@@ -75,26 +94,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for pages and API
+  // Network-first for pages (with offline fallback)
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, clone);
-          });
-        }
-        return response;
-      }).catch(() => {
+    fetch(request).then((response) => {
+      // Only cache successful basic responses (not opaque cross-origin)
+      if (response && response.status === 200 && response.type === 'basic') {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(request, clone);
+        });
+      }
+      return response;
+    }).catch(() => {
+      // Try cache as fallback
+      return caches.match(request).then((cached) => {
+        if (cached) return cached;
         // If both cache and network fail, return offline page for navigation
         if (request.mode === 'navigate') {
           return caches.match('/');
         }
         return new Response('Offline', { status: 503 });
       });
-
-      return cached || fetchPromise;
     })
   );
 });

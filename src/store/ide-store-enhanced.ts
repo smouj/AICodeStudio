@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 // ─── Existing Types (from original store) ───────────────────
 
-export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos' | 'docker' | 'database' | 'collaboration' | 'lsp' | 'voice' | 'themes' | 'canvas'
+export type SidebarPanel = 'explorer' | 'search' | 'git' | 'ai' | 'github' | 'extensions' | 'settings' | 'todos' | 'docker' | 'database' | 'collaboration' | 'lsp' | 'voice' | 'themes' | 'canvas' | 'whiteboard'
 export type BottomPanel = 'terminal' | 'output' | 'problems' | 'debug'
 
 export interface FileNode {
@@ -306,6 +306,71 @@ function sortFileNodes(nodes: FileNode[]): FileNode[] {
     if (a.type === 'file' && b.type === 'folder') return 1
     return a.name.localeCompare(b.name)
   })
+}
+
+/**
+ * Convert a flat record of filePath → content (from File System Access API)
+ * into a hierarchical FileNode[] tree that the FileExplorer can render.
+ */
+function buildFileTreeFromLocalFiles(files: Record<string, string>, rootName: string): FileNode[] {
+  const root: Map<string, FileNode> = new Map()
+
+  for (const filePath of Object.keys(files)) {
+    // filePath looks like "projectName/src/components/App.tsx"
+    const parts = filePath.split('/')
+    // First part is the workspace root name — we skip it and use it as the root container
+    let currentChildren = root
+
+    for (let i = 1; i < parts.length; i++) {
+      const partName = parts[i]
+      const partPath = parts.slice(0, i + 1).join('/')
+      const isFile = i === parts.length - 1
+
+      const existing = currentChildren.get(partPath)
+      if (existing) {
+        if (existing.children) {
+          currentChildren = new Map(existing.children.map(c => [c.path, c]))
+        }
+      } else {
+        const newNode: FileNode = isFile
+          ? { name: partName, path: partPath, type: 'file', language: getLanguageFromPath(partPath) }
+          : { name: partName, path: partPath, type: 'folder', children: [] }
+
+        currentChildren.set(partPath, newNode)
+        if (newNode.children) {
+          currentChildren = new Map()
+          // We'll update the children reference below
+          ;(newNode as { children: FileNode[] }).children = []
+          // Track the Map for this node's children
+          ;(newNode as { _childMap?: Map<string, FileNode> })._childMap = currentChildren
+        }
+        if (!isFile) {
+          currentChildren = (newNode as { _childMap?: Map<string, FileNode> })._childMap!
+        }
+      }
+
+      if (existing && existing.children) {
+        currentChildren = (existing as { _childMap?: Map<string, FileNode> })._childMap || new Map(existing.children.map(c => [c.path, c]))
+      }
+    }
+  }
+
+  // Convert Maps to arrays and clean up _childMap
+  function mapToArray(map: Map<string, FileNode>): FileNode[] {
+    const arr: FileNode[] = []
+    for (const node of map.values()) {
+      if (node.children) {
+        const childMap = (node as { _childMap?: Map<string, FileNode> })._childMap
+        const children = childMap ? mapToArray(childMap) : node.children
+        arr.push({ name: node.name, path: node.path, type: 'folder', children: sortFileNodes(children) })
+      } else {
+        arr.push({ name: node.name, path: node.path, type: 'file', language: node.language })
+      }
+    }
+    return sortFileNodes(arr)
+  }
+
+  return mapToArray(root)
 }
 
 // Helper: generate unique IDs (browser-native, no external deps)
@@ -1206,9 +1271,14 @@ export const useIDEStore = create<IDEState>()(
 
           await readDirectory(handle, handle.name)
 
+          // Convert flat localFiles → FileNode[] tree + fileContents
+          const fileTree = buildFileTreeFromLocalFiles(files, handle.name)
+
           set({
             fsHandle: handle,
             localFiles: files,
+            fileContents: { ...files },
+            fileTree,
             workspaceName: handle.name,
           })
 
@@ -1244,9 +1314,10 @@ export const useIDEStore = create<IDEState>()(
           await writable.write(content)
           await writable.close()
 
-          // Update local cache
+          // Update both localFiles and fileContents caches
           set((s) => ({
             localFiles: { ...s.localFiles, [path]: content },
+            fileContents: { ...s.fileContents, [path]: content },
           }))
 
           get().addOutputEntry('FileSystem', `Saved file locally: ${path}`)
@@ -1621,15 +1692,14 @@ export const useIDEStore = create<IDEState>()(
             || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
 
           if (SpeechRecognition) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const recognition = new (SpeechRecognition as any)();
+            const recognition = new (SpeechRecognition as { new (): { lang: string; continuous: boolean; interimResults: boolean; onresult: (ev: unknown) => void; onerror: () => void; onend: () => void; start: () => void } })();
             recognition.lang = state.voiceLanguage
             recognition.continuous = false
             recognition.interimResults = false
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            recognition.onresult = (event: any) => {
-              const transcript = event.results[0][0].transcript
+            recognition.onresult = (event: unknown) => {
+              const e = event as { results: { [index: number]: { transcript: string } }[] }
+              const transcript = e.results[0][0].transcript
               set({ voiceTranscript: transcript })
               get().addOutputEntry('Voice', `Recognized: ${transcript}`)
             }
@@ -1657,8 +1727,8 @@ export const useIDEStore = create<IDEState>()(
       stopListening: () => {
         set({ voiceListening: false })
         try {
-          const recognition = (window as unknown as Record<string, unknown>).__speechRecognition as // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            any | undefined
+          const recognition = (window as unknown as Record<string, unknown>).__speechRecognition as
+            { stop: () => void } | undefined
           recognition?.stop()
         } catch {
           // Ignore errors when stopping

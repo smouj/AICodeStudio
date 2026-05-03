@@ -53,12 +53,39 @@ describe('server-flags', () => {
       expect(caps.collaboration.status).toBe('simulated')
     })
 
-    it('docker enables when both flag and host are set', () => {
+    it('docker enables when both flag and host are set with unix socket', () => {
       process.env.AICODE_ENABLE_DOCKER = 'true'
-      process.env.DOCKER_HOST = 'http://localhost:2375'
+      process.env.DOCKER_HOST = 'unix:///var/run/docker.sock'
       const caps = getCapabilities()
       expect(caps.docker.enabled).toBe(true)
       expect(caps.docker.status).toBe('enabled')
+    })
+
+    it('docker blocks unencrypted localhost TCP without allow-unsafe flag', () => {
+      process.env.AICODE_ENABLE_DOCKER = 'true'
+      process.env.DOCKER_HOST = 'http://localhost:2375'
+      delete process.env.AICODE_DOCKER_ALLOW_UNSAFE
+      const caps = getCapabilities()
+      expect(caps.docker.enabled).toBe(false)
+      expect(caps.docker.status).toBe('unavailable')
+    })
+
+    it('docker allows unencrypted localhost TCP with allow-unsafe flag', () => {
+      process.env.AICODE_ENABLE_DOCKER = 'true'
+      process.env.DOCKER_HOST = 'http://localhost:2375'
+      process.env.AICODE_DOCKER_ALLOW_UNSAFE = 'true'
+      const caps = getCapabilities()
+      expect(caps.docker.enabled).toBe(true)
+      expect(caps.docker.status).toBe('enabled')
+    })
+
+    it('docker blocks non-localhost unencrypted TCP even with allow-unsafe flag', () => {
+      process.env.AICODE_ENABLE_DOCKER = 'true'
+      process.env.DOCKER_HOST = 'http://192.168.1.100:2375'
+      process.env.AICODE_DOCKER_ALLOW_UNSAFE = 'true'
+      const caps = getCapabilities()
+      expect(caps.docker.enabled).toBe(false)
+      expect(caps.docker.status).toBe('unavailable')
     })
 
     it('docker remains disabled when only flag is set without host', () => {

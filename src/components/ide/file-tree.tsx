@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useState, useCallback } from 'react'
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, FolderPlus, FilePlus, Trash2, Pencil } from 'lucide-react'
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, FolderPlus, FilePlus, Trash2, Pencil, HardDrive } from 'lucide-react'
 import { useIDEStore, type FileNode } from '@/store/ide-store'
 
 function getFileIconColor(name: string): string {
@@ -57,7 +57,7 @@ const FileTreeItem = memo(function FileTreeItem({ node, depth }: { node: FileNod
   }, [renameValue, node, renameNode])
 
   return (
-    <div role="treeitem" aria-expanded={isFolder ? isExpanded : undefined}>
+    <div role="treeitem" aria-expanded={isFolder ? isExpanded : undefined} aria-selected={false}>
       <div
         className={`
           flex items-center gap-1 py-[3px] pr-3 cursor-pointer
@@ -181,6 +181,13 @@ export function FileExplorer() {
   const createFile = useIDEStore((s) => s.createFile)
   const createFolder = useIDEStore((s) => s.createFolder)
   const workspaceName = useIDEStore((s) => s.workspaceName)
+  const fsAccessSupported = useIDEStore((s) => s.fsAccessSupported)
+  const fsHandle = useIDEStore((s) => s.fsHandle)
+  const openLocalDirectory = useIDEStore((s) => s.openLocalDirectory)
+  const saveFileLocally = useIDEStore((s) => s.saveFileLocally)
+  const writeFile = useIDEStore((s) => s.writeFile)
+
+  const isLocalFS = !!fsHandle
 
   const handleNewFile = () => {
     const name = prompt('File name (e.g. index.tsx):')
@@ -194,11 +201,43 @@ export function FileExplorer() {
     createFolder(`/${name.trim()}`)
   }
 
+  const handleOpenLocal = async () => {
+    await openLocalDirectory()
+  }
+
+  const handleSaveCurrentFile = useCallback(async () => {
+    const state = useIDEStore.getState()
+    const activeTab = state.openTabs.find((t) => t.id === state.activeTabId)
+    if (activeTab && activeTab.isModified && fsHandle) {
+      await saveFileLocally(activeTab.path, activeTab.content)
+      // Mark as not modified in the virtual FS too
+      writeFile(activeTab.path, activeTab.content)
+    }
+  }, [fsHandle, saveFileLocally, writeFile])
+
   return (
     <div className="h-full flex flex-col" role="tree" aria-label="File explorer">
       <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#30363d] border-b border-[rgba(0,212,170,0.08)]">
-        <span>Explorer</span>
+        <span className="truncate">{workspaceName || 'Explorer'}</span>
         <div className="flex items-center gap-1">
+          {fsAccessSupported && !isLocalFS && (
+            <button
+              onClick={handleOpenLocal}
+              className="text-[#30363d] hover:text-[#00d4aa] cursor-pointer transition-colors"
+              title="Open local folder (File System Access API)"
+            >
+              <HardDrive size={12} />
+            </button>
+          )}
+          {isLocalFS && (
+            <button
+              onClick={handleSaveCurrentFile}
+              className="text-[#00d4aa]/60 hover:text-[#00d4aa] cursor-pointer transition-colors"
+              title="Save to local disk"
+            >
+              <HardDrive size={12} />
+            </button>
+          )}
           <button
             onClick={handleNewFile}
             className="text-[#30363d] hover:text-[#00d4aa] cursor-pointer transition-colors"
@@ -215,13 +254,31 @@ export function FileExplorer() {
           </button>
         </div>
       </div>
+
+      {/* Local FS indicator */}
+      {isLocalFS && (
+        <div className="px-3 py-1.5 bg-[rgba(0,212,170,0.06)] border-b border-[rgba(0,212,170,0.08)] flex items-center gap-1.5">
+          <HardDrive size={10} className="text-[#00d4aa] shrink-0" />
+          <span className="text-[10px] font-mono text-[#00d4aa]/70">Local FS — saves to disk</span>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-1 custom-scrollbar">
         {fileTree.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-[#30363d] text-center py-8 px-4">
             <Folder size={32} className="mb-2 text-[#00d4aa]/10" />
             <p className="text-[12px] font-mono text-[#484f58]">No files in workspace</p>
-            <p className="text-[10px] text-[#30363d] mt-1">Create files using the + buttons above, or clone a repository from GitHub</p>
+            <p className="text-[10px] text-[#30363d] mt-1">Create files, open a local folder, or clone a repository</p>
             <div className="flex gap-2 mt-3">
+              {fsAccessSupported && (
+                <button
+                  onClick={handleOpenLocal}
+                  className="px-2 py-1 text-[10px] font-mono border border-[rgba(0,212,170,0.12)] rounded text-[#00d4aa]/60 hover:bg-[rgba(0,212,170,0.06)] hover:text-[#00d4aa] cursor-pointer transition-colors"
+                >
+                  <HardDrive size={9} className="inline mr-1" />
+                  Open Folder
+                </button>
+              )}
               <button
                 onClick={handleNewFile}
                 className="px-2 py-1 text-[10px] font-mono border border-[rgba(0,212,170,0.12)] rounded text-[#00d4aa]/60 hover:bg-[rgba(0,212,170,0.06)] hover:text-[#00d4aa] cursor-pointer transition-colors"

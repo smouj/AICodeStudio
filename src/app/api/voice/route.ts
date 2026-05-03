@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Voice-to-Code API
 // Processes voice transcripts and converts them into code suggestions
 // using the z-ai-web-dev-sdk.
+//
+// SECURITY: All inputs validated with Zod. Transcript and context length
+// capped to prevent token abuse. mode is enum-validated. language is
+// allowlisted. filePath is sanitized.
 // ---------------------------------------------------------------------------
-
-interface VoiceToCodeRequest {
-  transcript: string;
-  language?: string;
-  context?: string;
-  filePath?: string;
-  mode?: 'generate' | 'edit' | 'command' | 'explain';
-}
 
 interface CodeSuggestion {
   code: string;
@@ -26,35 +23,43 @@ interface CodeSuggestion {
   };
 }
 
+const VOICE_MODES = ['generate', 'edit', 'command', 'explain'] as const;
+
+const SUPPORTED_LANGUAGES = [
+  'typescript', 'javascript', 'python', 'rust', 'go',
+  'java', 'c', 'cpp', 'html', 'css', 'sql', 'shell',
+  'ruby', 'php', 'swift', 'kotlin', 'dart', 'lua',
+] as const;
+
+const SANITIZED_PATH_REGEX = /^[a-zA-Z0-9_./-]+$/;
+
+const postBodySchema = z.object({
+  transcript: z.string().min(1).max(4000, 'Transcript exceeds maximum length'),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('typescript'),
+  context: z.string().max(12000, 'Context exceeds maximum length').optional(),
+  filePath: z.string().max(500).regex(SANITIZED_PATH_REGEX, 'filePath contains invalid characters').optional(),
+  mode: z.enum(VOICE_MODES).optional().default('generate'),
+}).strict();
+
 /**
  * POST /api/voice
  * Process a voice transcript and convert it into code suggestions.
- * Body: { transcript, language?, context?, filePath?, mode? }
  */
 export async function POST(req: NextRequest) {
   try {
-    const body: VoiceToCodeRequest = await req.json();
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
     const { transcript, language, context, filePath, mode } = body;
-
-    if (!transcript || typeof transcript !== 'string') {
-      return NextResponse.json(
-        { error: 'transcript is required and must be a string' },
-        { status: 400 }
-      );
-    }
 
     // Use z-ai-web-dev-sdk to convert voice transcript to code
     const ZAI = (await import('z-ai-web-dev-sdk')).default;
     const zai = await ZAI.create();
 
-    const resolvedMode = mode || 'generate';
-    const resolvedLanguage = language || 'typescript';
-
     // Build a mode-specific system prompt
-    const systemPrompt = buildSystemPrompt(resolvedMode, resolvedLanguage, filePath);
+    const systemPrompt = buildSystemPrompt(mode, language, filePath);
 
     // Build the user prompt with context
-    const userPrompt = buildUserPrompt(transcript, context, resolvedLanguage, filePath, resolvedMode);
+    const userPrompt = buildUserPrompt(transcript, context, language, filePath, mode);
 
     const completion = await zai.chat.completions.create({
       messages: [
@@ -73,17 +78,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse the AI response into structured code suggestions
-    const suggestions = parseCodeResponse(content, resolvedLanguage, filePath, resolvedMode);
+    const suggestions = parseCodeResponse(content, language, filePath, mode);
 
     return NextResponse.json({
       success: true,
       transcript,
-      language: resolvedLanguage,
-      mode: resolvedMode,
+      language,
+      mode,
       suggestions,
       rawResponse: content,
     });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Voice-to-code processing failed: ${message}` },
@@ -122,11 +133,7 @@ export async function GET() {
           description: 'Explain code or concepts based on voice questions',
         },
       ],
-      supportedLanguages: [
-        'typescript', 'javascript', 'python', 'rust', 'go',
-        'java', 'c', 'cpp', 'html', 'css', 'sql', 'shell',
-        'ruby', 'php', 'swift', 'kotlin', 'dart', 'lua',
-      ],
+      supportedLanguages: SUPPORTED_LANGUAGES,
       voiceCommands: [
         'create a function that...',
         'add a class named...',

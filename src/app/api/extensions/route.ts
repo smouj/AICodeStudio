@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Extension Marketplace API
 // Uses the Open VSX Registry (https://open-vsx.org) for real extension data.
+//
+// SECURITY: All inputs validated with Zod. size is capped to prevent
+// excessive API responses. sortBy/sortOrder are enum-validated.
+// namespace/name are sanitized before passing to external API.
 // ---------------------------------------------------------------------------
 
 const OPEN_VSX_BASE = 'https://open-vsx.org/api';
@@ -27,35 +32,55 @@ interface VSXExtension {
   categories?: string[];
 }
 
+// ─── Zod Schemas ────────────────────────────────────────────────────────────
+
+const EXT_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+
+const getQuerySchema = z.object({
+  query: z.string().max(200).default(''),
+  size: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).max(10000).default(0),
+  category: z.string().max(50).default(''),
+  sortBy: z.enum(['relevance', 'downloadCount', 'timestamp']).default('relevance'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+const postBodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('detail'),
+    namespace: z.string().min(1).max(100).regex(EXT_NAME_REGEX, 'Invalid namespace format'),
+    name: z.string().min(1).max(100).regex(EXT_NAME_REGEX, 'Invalid extension name format'),
+  }).strict(),
+  z.object({
+    action: z.literal('popular'),
+    size: z.number().int().min(1).max(50).default(20),
+  }).strict(),
+]);
+
 /**
  * GET /api/extensions
  * Search extensions from Open VSX Registry.
- * Query params:
- *   - query: search string
- *   - size: number of results (default 20)
- *   - offset: pagination offset (default 0)
- *   - category: filter by category
- *   - sortBy: relevance | downloadCount | timestamp (default relevance)
- *   - sortOrder: asc | desc (default desc)
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get('query') || '';
-    const size = searchParams.get('size') || '20';
-    const offset = searchParams.get('offset') || '0';
-    const category = searchParams.get('category') || '';
-    const sortBy = searchParams.get('sortBy') || 'relevance';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const parsed = getQuerySchema.parse({
+      query: searchParams.get('query') || '',
+      size: searchParams.get('size') || '20',
+      offset: searchParams.get('offset') || '0',
+      category: searchParams.get('category') || '',
+      sortBy: searchParams.get('sortBy') || 'relevance',
+      sortOrder: searchParams.get('sortOrder') || 'desc',
+    });
 
     // Build Open VSX search URL
     const params = new URLSearchParams();
-    if (query) params.set('query', query);
-    params.set('size', size);
-    params.set('offset', offset);
-    if (category) params.set('category', category);
-    if (sortBy) params.set('sortBy', sortBy);
-    if (sortOrder) params.set('sortOrder', sortOrder);
+    if (parsed.query) params.set('query', parsed.query);
+    params.set('size', String(parsed.size));
+    params.set('offset', String(parsed.offset));
+    if (parsed.category) params.set('category', parsed.category);
+    if (parsed.sortBy) params.set('sortBy', parsed.sortBy);
+    if (parsed.sortOrder) params.set('sortOrder', parsed.sortOrder);
 
     const searchUrl = `${OPEN_VSX_BASE}/-/search?${params.toString()}`;
 
@@ -97,13 +122,19 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      query,
+      query: parsed.query,
       extensions,
       totalSize: data.totalSize || extensions.length,
-      offset: parseInt(offset, 10),
-      size: parseInt(size, 10),
+      offset: parsed.offset,
+      size: parsed.size,
     });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Extension search failed: ${message}` },
@@ -115,25 +146,25 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/extensions
  * Get extension details or popular extensions.
- * Body: { action: 'detail'|'popular', namespace: string, name: string }
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { action } = body;
+    const rawBody = await req.json();
+    const body = postBodySchema.parse(rawBody);
 
-    switch (action) {
+    switch (body.action) {
       case 'detail':
         return await getExtensionDetail(body.namespace, body.name);
       case 'popular':
-        return await getPopularExtensions(body.size || 20);
-      default:
-        return NextResponse.json(
-          { error: `Unknown action: ${action}. Supported: detail, popular` },
-          { status: 400 }
-        );
+        return await getPopularExtensions(body.size);
     }
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Extension operation failed: ${message}` },
@@ -142,14 +173,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function getExtensionDetail(namespace?: string, name?: string) {
-  if (!namespace || !name) {
-    return NextResponse.json(
-      { error: 'namespace and name are required for detail action' },
-      { status: 400 }
-    );
-  }
-
+async function getExtensionDetail(namespace: string, name: string) {
   try {
     const detailUrl = `${OPEN_VSX_BASE}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
     const response = await fetch(detailUrl, {
