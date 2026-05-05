@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/brand/aicodestudio-mark.svg" alt="AICodeStudio Mark" width="64" height="64" />
+<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/91e2b7d1-21f2-4a45-972f-4c8be10287e2" />
 
 # AICodeStudio
 
